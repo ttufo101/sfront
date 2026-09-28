@@ -1,0 +1,380 @@
+// 冻结契约：starland.Admin 与 starland.Login 的请求/响应类型与 module 映射。
+// 类型直接对齐 admin.proto / login.proto；int64/uint64 一律使用十进制字符串（gateway-protocol 唯一事实源）。
+// 此文件是 endpoint registry 的唯一事实源，页面不得各自维护第二套清单。
+
+export interface ListUsersRequest {
+  page?: number
+  page_size?: number
+  keyword?: string
+}
+export interface UserInfo {
+  uid: string
+  email: string
+  role: string // user / admin
+  status: number // 1正常 2禁用
+  created_at: string // int64 秒级字符串
+  bound_device_count: number
+}
+export interface ListUsersResponse {
+  users: UserInfo[]
+  total: string // int64 字符串
+}
+
+export interface ListPlansRequest {}
+export interface PlanInfo {
+  plan_id: string
+  name: string
+  plan_type: string // time / traffic
+  duration_days: number
+  traffic_bytes: string // uint64 字符串
+  speed_limit_mbps: number
+  max_devices: number
+  description: string
+  price_amount: string // uint64 字符串（最小货币单位）
+  currency: string
+  recommended: boolean
+  status: number // 1启用 2停用
+  sort: number
+}
+export interface ListPlansResponse {
+  plans: PlanInfo[]
+}
+export interface CreatePlanRequest {
+  plan_id: string
+  name: string
+  plan_type: string
+  duration_days: number
+  traffic_bytes: string
+  speed_limit_mbps: number
+  max_devices: number
+  description: string
+  price_amount: string
+  currency: string
+  recommended: boolean
+  sort: number
+}
+export interface CreatePlanResponse {
+  success: boolean
+}
+export interface UpdatePlanRequest {
+  plan_id: string
+  name: string
+  plan_type: string
+  duration_days: number
+  traffic_bytes: string
+  speed_limit_mbps: number
+  max_devices: number
+  description: string
+  price_amount: string
+  currency: string
+  recommended: boolean
+  status: number // 1启用 2停用
+  sort: number
+}
+export interface UpdatePlanResponse {
+  success: boolean
+}
+
+export interface GrantUserPlanRequest {
+  email: string
+  plan_id: string
+}
+export interface GrantUserPlanResponse {
+  order_no: string
+}
+export interface UpdateUserSubscriptionRequest {
+  email: string
+  plan_type: string // time / traffic
+  expires_at?: string // int64 秒级字符串，仅 time 生效
+  traffic_total_bytes?: string // uint64 字符串，仅 traffic 生效
+}
+export interface UpdateUserSubscriptionResponse {
+  success: boolean
+}
+export interface RevokeUserPlanRequest {
+  order_no: string
+}
+export interface RevokeUserPlanResponse {
+  success: boolean
+  already_revoked: boolean
+}
+
+// 按邮箱查询用户的时间和流量订阅快照（Admin.GetUserSubscriptions，已对齐 admin.proto）。
+// 时间套餐与流量套餐共用 AdminSubscription 结构；无某类订阅时对应字段为 null/空。
+export interface GetUserSubscriptionsRequest {
+  email: string
+}
+export interface AdminSubscription {
+  plan_id: string
+  plan_name: string
+  plan_type: string // time / traffic
+  duration_days: number // 流量套餐为 0
+  speed_limit_mbps: number // 带宽限制 mbps，0 表示不限速
+  max_devices: number // 最大在线设备数，单位：台
+  starts_at: string // int64 秒级字符串
+  expires_at: string // int64 秒级字符串；流量套餐为 "0"
+  remaining_days: number
+  traffic_total_bytes: string // uint64 字符串
+  traffic_used_bytes: string // uint64 字符串
+  remaining_traffic_bytes: string // uint64 字符串
+  status: number // 数据库订阅状态
+  active: boolean // 当前是否仍可用
+}
+export interface GetUserSubscriptionsResponse {
+  uid: string
+  email: string
+  time_subscription: AdminSubscription | null // 无时间订阅时为空
+  traffic_subscription: AdminSubscription | null // 无流量订阅时为空
+}
+
+export interface GetProxyConfigRequest {}
+export interface GetProxyConfigResponse {
+  content: string // 完整 proxy.yaml 文本（明文，非 base64）
+}
+export interface UpdateProxyConfigRequest {
+  content: string
+}
+export interface UpdateProxyConfigResponse {
+  success: boolean
+}
+
+export interface ListUserDevicesRequest {
+  email: string
+}
+export interface UserDevice {
+  uid: string
+  device_id: string
+  device_type: string
+  bound_at: string // int64 秒级字符串
+  last_login_at: string // int64 秒级字符串
+  status: number // 1已绑定 2已剔除
+}
+export interface ListUserDevicesResponse {
+  devices: UserDevice[]
+}
+
+export interface ListAnnouncementsRequest {}
+export interface Announcement {
+  id: string // uint64 字符串
+  title: string
+  content: string
+  status: string // draft / published / unpublished
+  published_at: string
+  created_at: string
+  updated_at: string
+}
+export interface ListAnnouncementsResponse {
+  announcements: Announcement[]
+}
+export interface CreateAnnouncementRequest {
+  title: string
+  content: string
+}
+export interface CreateAnnouncementResponse {
+  id: string
+}
+export interface UpdateAnnouncementRequest {
+  id: string
+  title: string
+  content: string
+}
+export interface UpdateAnnouncementResponse {
+  success: boolean
+}
+export interface PublishAnnouncementRequest {
+  id: string
+}
+export interface PublishAnnouncementResponse {
+  success: boolean
+}
+export interface UnpublishAnnouncementRequest {
+  id: string
+}
+export interface UnpublishAnnouncementResponse {
+  success: boolean
+}
+
+// ---- 客户端版本发布（Admin.ListAppVersions / PublishAppVersion / DisableAppVersion）----
+// 对齐 admin.proto：上传在文件服务完成，Admin 仅保存版本号/构建号/发布说明并控制生效态。
+export interface AppVersionRelease {
+  release_id: string
+  platform: string // android / ios / windows / mac
+  latest_version: string // major.minor.patch
+  build_number: string // uint64 十进制字符串，同平台严格递增
+  minimum_version: string // 低于此版本强制升级
+  file_id: string // 文件服务上传返回的文件 ID
+  file_name: string
+  package_size_bytes: string // uint64 十进制字符串
+  package_sha256: string
+  package_type: string // apk / ipa / exe / dmg / pkg
+  update_url: string
+  update_title: string
+  update_description: string
+  status: string // active / disabled / superseded
+  operator_uid: string
+  published_at: string // int64 秒级字符串（JS_NUMBER）
+  created_at: string // int64 秒级字符串（JS_NUMBER）
+  updated_at: string // int64 秒级字符串（JS_NUMBER）
+}
+export interface ListAppVersionsRequest {
+  platform?: string // android / ios / windows / mac；空表示全部
+  include_history?: boolean // false 只查当前生效版本；true 含 disabled 与 superseded 历史
+}
+export interface ListAppVersionsResponse {
+  releases: AppVersionRelease[]
+  /** 符合条件的记录总数（int64，协议按十进制字符串传输，网关也可能下发为数字） */
+  total?: string | number
+}
+export interface PublishAppVersionRequest {
+  file_id: string
+  platform: string
+  latest_version: string // major.minor.patch
+  build_number: string // uint64 十进制字符串
+  minimum_version: string
+  update_title: string
+  update_description: string
+  client_request_id: string // 调用方生成 UUID，幂等发布
+  expected_release_id: string // 当前发布 ID；首发留空，防并发覆盖
+  // 以下 4 字段来自文件服务上传接口返回；admin 不回查文件服务，必须由前端转发
+  file_name: string // 上传接口返回的原始文件名
+  package_size_bytes: string // uint64 十进制字符串，上传接口返回的安装包大小
+  package_sha256: string // 上传接口返回的 64 位小写十六进制 SHA-256
+  package_type: string // apk / ipa / exe / dmg / pkg，须与 platform 匹配
+}
+export interface PublishAppVersionResponse {
+  release: AppVersionRelease
+}
+export interface DisableAppVersionRequest {
+  platform: string
+  expected_release_id: string // 必须与当前生效发布一致
+}
+export interface DisableAppVersionResponse {
+  success: boolean
+}
+
+// ---- 网络覆盖展示配置（Admin.GetNetworkCoverageConfig / UpdateNetworkCoverageConfig）----
+// 对齐 admin.proto：后端仅配置「地区 → 地点」两级列表，主标语/副标题/底部说明/按钮文案由 C 端写死。
+// revision 为 uint64、updated_at 为 int64（JS_NUMBER），按惯例用 string|number 兼容网关下行（可能下行为数字）。
+export interface NetworkCoverageLocation {
+  code: string // 地点 code，^[a-z][a-z0-9_]{0,31}$
+  display_name: string // ≤32 字符（按 rune/字符计数）
+}
+export interface NetworkCoverageRegion {
+  code: string // 地区 code，^[a-z][a-z0-9_]{0,31}$
+  display_name: string // ≤32 字符
+  locations: NetworkCoverageLocation[]
+}
+export interface GetNetworkCoverageConfigRequest {}
+export interface GetNetworkCoverageConfigResponse {
+  regions: NetworkCoverageRegion[]
+  revision: string | number // uint64 十进制字符串（网关亦可能下行为数字）
+  updated_at: string | number // int64 秒级（JS_NUMBER）
+}
+export interface UpdateNetworkCoverageConfigRequest {
+  regions: NetworkCoverageRegion[]
+  expected_revision: string | number // 必须等于当前修订号，否则 Conflict
+}
+export interface UpdateNetworkCoverageConfigResponse {
+  success: boolean
+  revision: string | number
+  updated_at: string | number
+}
+
+// ---- 意见反馈与诊断日志（Admin.ListFeedback / GetFeedbackDetail / UpdateFeedbackStatus）----
+// 对齐 admin.proto。字段与 feedback.proto 的 FeedbackTicket 一一对应，前端以 admin.proto 网关契约为准
+// （feedback.proto 的 Admin* 方法标注"供 Admin 服务内部调用，不通过 Gateway 开放"）。
+// 时间字段 created_at/updated_at/log_started_at/log_ended_at 标了 [jstype=JS_NUMBER]，按惯例用 string，
+// formatTimestamp 已兼容 string|number，后端发数字或字符串均可正确解析。
+export interface AdminFeedbackTicket {
+  feedback_id: string
+  uid: string
+  ticket_type: string // feedback / diagnostic
+  category: string // suggestion / issue / other
+  content: string
+  contact: string
+  description: string
+  status: string // pending / reviewing / resolved / closed
+  device_id: string
+  device_type: string
+  app_version: string
+  os_version: string
+  client_ip: string
+  log_started_at: string // int64 字符串（JS_NUMBER）
+  log_ended_at: string // int64 字符串（JS_NUMBER）
+  file_id: string
+  file_name: string
+  size_bytes: string // uint64 十进制字符串
+  sha256: string
+  content_type: string
+  created_at: string // int64 字符串（JS_NUMBER）
+  updated_at: string // int64 字符串（JS_NUMBER）
+}
+export interface ListFeedbackRequest {
+  page?: number
+  page_size?: number
+  ticket_type?: string // feedback / diagnostic；空表示全部
+  status?: string // pending / reviewing / resolved / closed；空表示全部
+  uid?: string
+  keyword?: string
+  created_from?: number // int64（JS_NUMBER），可选
+  created_to?: number // int64（JS_NUMBER），可选
+}
+export interface ListFeedbackResponse {
+  tickets: AdminFeedbackTicket[]
+  total: string // int64 字符串
+}
+export interface GetFeedbackDetailRequest {
+  feedback_id: string
+}
+export interface GetFeedbackDetailResponse {
+  ticket: AdminFeedbackTicket
+}
+export interface UpdateFeedbackStatusRequest {
+  feedback_id: string
+  status: string
+}
+export interface UpdateFeedbackStatusResponse {
+  success: boolean
+}
+
+// ---- Login 契约（starland.Login）----
+export interface LoginResponse {
+  uid: string
+  access_token: string
+  refresh_token: string
+  access_expire_at: string // int64 秒级字符串
+  refresh_expire_at: string // int64 秒级字符串
+}
+
+// ---- 集中映射 ----
+export interface AdminContract {
+  ListUsers: { req: ListUsersRequest; res: ListUsersResponse }
+  ListPlans: { req: ListPlansRequest; res: ListPlansResponse }
+  CreatePlan: { req: CreatePlanRequest; res: CreatePlanResponse }
+  UpdatePlan: { req: UpdatePlanRequest; res: UpdatePlanResponse }
+  GrantUserPlan: { req: GrantUserPlanRequest; res: GrantUserPlanResponse }
+  UpdateUserSubscription: { req: UpdateUserSubscriptionRequest; res: UpdateUserSubscriptionResponse }
+  RevokeUserPlan: { req: RevokeUserPlanRequest; res: RevokeUserPlanResponse }
+  GetUserSubscriptions: { req: GetUserSubscriptionsRequest; res: GetUserSubscriptionsResponse }
+  GetProxyConfig: { req: GetProxyConfigRequest; res: GetProxyConfigResponse }
+  UpdateProxyConfig: { req: UpdateProxyConfigRequest; res: UpdateProxyConfigResponse }
+  ListUserDevices: { req: ListUserDevicesRequest; res: ListUserDevicesResponse }
+  ListAnnouncements: { req: ListAnnouncementsRequest; res: ListAnnouncementsResponse }
+  CreateAnnouncement: { req: CreateAnnouncementRequest; res: CreateAnnouncementResponse }
+  UpdateAnnouncement: { req: UpdateAnnouncementRequest; res: UpdateAnnouncementResponse }
+  PublishAnnouncement: { req: PublishAnnouncementRequest; res: PublishAnnouncementResponse }
+  UnpublishAnnouncement: { req: UnpublishAnnouncementRequest; res: UnpublishAnnouncementResponse }
+  ListAppVersions: { req: ListAppVersionsRequest; res: ListAppVersionsResponse }
+  PublishAppVersion: { req: PublishAppVersionRequest; res: PublishAppVersionResponse }
+  DisableAppVersion: { req: DisableAppVersionRequest; res: DisableAppVersionResponse }
+  GetNetworkCoverageConfig: { req: GetNetworkCoverageConfigRequest; res: GetNetworkCoverageConfigResponse }
+  UpdateNetworkCoverageConfig: { req: UpdateNetworkCoverageConfigRequest; res: UpdateNetworkCoverageConfigResponse }
+  ListFeedback: { req: ListFeedbackRequest; res: ListFeedbackResponse }
+  GetFeedbackDetail: { req: GetFeedbackDetailRequest; res: GetFeedbackDetailResponse }
+  UpdateFeedbackStatus: { req: UpdateFeedbackStatusRequest; res: UpdateFeedbackStatusResponse }
+}
+
+export type AdminMethod = keyof AdminContract
+
+export const ADMIN_MODULE = 'starland.admin.com'
+export const LOGIN_MODULE = 'starland.login.com'
