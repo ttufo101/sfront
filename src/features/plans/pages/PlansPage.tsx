@@ -33,6 +33,8 @@ interface FormState {
   currency: string
   description: string
   recommended: boolean
+  new_user_only: boolean
+  badge: string
   status: number
 }
 
@@ -47,9 +49,11 @@ const emptyForm = (): FormState => ({
   price_yuan: '0',
   currency: 'CNY',
   description: '',
-  recommended: false,
-  status: 1,
-})
+    recommended: false,
+    new_user_only: false,
+    badge: '',
+    status: 1,
+  })
 
 function planToForm(p: PlanInfo): FormState {
   return {
@@ -64,6 +68,8 @@ function planToForm(p: PlanInfo): FormState {
     currency: p.currency,
     description: p.description,
     recommended: p.recommended,
+    new_user_only: p.new_user_only,
+    badge: p.badge,
     status: p.status,
   }
 }
@@ -101,6 +107,8 @@ export function PlansPage() {
       price_amount: String(Math.round(toNumberSafe(form.price_yuan) * 100)),
       currency: form.currency,
       recommended: form.recommended,
+      new_user_only: form.new_user_only,
+      badge: form.badge,
       ...(editing ? { status: form.status } : {}),
     }
     try {
@@ -133,6 +141,8 @@ export function PlansPage() {
         price_amount: p.price_amount,
         currency: p.currency,
         recommended: p.recommended,
+        new_user_only: p.new_user_only,
+        badge: p.badge,
         status: next,
         sort: p.sort,
       })
@@ -182,6 +192,8 @@ export function PlansPage() {
                   <TableCell className="font-medium">
                     {p.name}
                     {p.recommended && <Badge variant="default" className="ml-2">推荐</Badge>}
+                    {p.new_user_only && <Badge variant="secondary" className="ml-2">新人专享</Badge>}
+                    {p.badge ? <Badge variant="outline" className="ml-2">{p.badge}</Badge> : null}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">{p.plan_type === 'time' ? '时长' : '流量'}</Badge>
@@ -260,9 +272,16 @@ export function PlansPage() {
             <Field label="描述">
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </Field>
+            <Field label="角标（可选，如“限时”“热门”）">
+              <Input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} placeholder="留空表示无角标" />
+            </Field>
             <div className="flex items-center justify-between">
               <Label>设为推荐套餐</Label>
               <Switch checked={form.recommended} onCheckedChange={(v) => setForm({ ...form, recommended: v })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label>新人专享套餐</Label>
+              <Switch checked={form.new_user_only} onCheckedChange={(v) => setForm({ ...form, new_user_only: v })} />
             </div>
             {editing && (
               <div className="flex items-center justify-between">

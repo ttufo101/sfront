@@ -12,7 +12,7 @@ const NAV = [
   { to: '/releases', label: '版本发布', icon: UploadCloud },
   { to: '/feedback', label: '用户反馈', icon: MessageSquare },
   { to: '/announcements', label: '公告管理', icon: Megaphone },
-  { to: '/network-coverage', label: '网络覆盖', icon: Globe },
+  { to: '/shared-plan-benefits', label: '共享权益', icon: Globe },
 ]
 
 export function AdminLayout() {

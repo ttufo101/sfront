@@ -12,7 +12,7 @@ import { AnnouncementsPage } from '@/features/announcements/pages/AnnouncementsP
 import { ReleasesPage } from '@/features/releases/pages/ReleasesPage'
 import { ReleaseUploadPage } from '@/features/releases/pages/ReleaseUploadPage'
 import { FeedbackPage } from '@/features/feedback/pages/FeedbackPage'
-import { NetworkCoveragePage } from '@/features/network-coverage/pages/NetworkCoveragePage'
+import { SharedPlanBenefitsPage } from '@/features/shared-plan-benefits/pages/SharedPlanBenefitsPage'
 
 export default function App() {
   return (
@@ -36,7 +36,7 @@ export default function App() {
         <Route path="/releases/new" element={<ReleaseUploadPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
         <Route path="/announcements" element={<AnnouncementsPage />} />
-        <Route path="/network-coverage" element={<NetworkCoveragePage />} />
+        <Route path="/shared-plan-benefits" element={<SharedPlanBenefitsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

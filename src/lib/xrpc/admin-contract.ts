@@ -33,6 +33,8 @@ export interface PlanInfo {
   price_amount: string // uint64 字符串（最小货币单位）
   currency: string
   recommended: boolean
+  new_user_only: boolean // 新人专享套餐
+  badge: string // 套餐角标（如“限时”“热门”），空表示无
   status: number // 1启用 2停用
   sort: number
 }
@@ -51,6 +53,8 @@ export interface CreatePlanRequest {
   price_amount: string
   currency: string
   recommended: boolean
+  new_user_only: boolean // 新人专享套餐
+  badge: string // 套餐角标
   sort: number
 }
 export interface CreatePlanResponse {
@@ -68,6 +72,8 @@ export interface UpdatePlanRequest {
   price_amount: string
   currency: string
   recommended: boolean
+  new_user_only: boolean // 新人专享套餐
+  badge: string // 套餐角标
   status: number // 1启用 2停用
   sort: number
 }
@@ -219,6 +225,8 @@ export interface AppVersionRelease {
 export interface ListAppVersionsRequest {
   platform?: string // android / ios / windows / mac；空表示全部
   include_history?: boolean // false 只查当前生效版本；true 含 disabled 与 superseded 历史
+  page?: number // 第几页，从 1 开始；默认 1
+  page_size?: number // 每页条数；默认 20，最大 100
 }
 export interface ListAppVersionsResponse {
   releases: AppVersionRelease[]
@@ -252,29 +260,36 @@ export interface DisableAppVersionResponse {
   success: boolean
 }
 
-// ---- 网络覆盖展示配置（Admin.GetNetworkCoverageConfig / UpdateNetworkCoverageConfig）----
-// 对齐 admin.proto：后端仅配置「地区 → 地点」两级列表，主标语/副标题/底部说明/按钮文案由 C 端写死。
+// ---- 套餐共享权益配置（Admin.GetSharedPlanBenefitsConfig / UpdateSharedPlanBenefitsConfig）----
+// 对齐 admin.proto / starcore.proto：替代原 NetworkCoverageConfig。
+// 后端配置「连接性能（speed_limit_mbps / max_devices）+ 地区 → 地点」两级列表；
+// 地点带连接地点数量 connection_point_count（管理员维护）；整体替换 + 乐观锁 expected_revision。
 // revision 为 uint64、updated_at 为 int64（JS_NUMBER），按惯例用 string|number 兼容网关下行（可能下行为数字）。
-export interface NetworkCoverageLocation {
+export interface SharedPlanBenefitLocation {
   code: string // 地点 code，^[a-z][a-z0-9_]{0,31}$
   display_name: string // ≤32 字符（按 rune/字符计数）
+  connection_point_count: number // 该位置对外展示的连接地点数量，管理员维护（int32）
 }
-export interface NetworkCoverageRegion {
+export interface SharedPlanBenefitRegion {
   code: string // 地区 code，^[a-z][a-z0-9_]{0,31}$
   display_name: string // ≤32 字符
-  locations: NetworkCoverageLocation[]
+  locations: SharedPlanBenefitLocation[]
 }
-export interface GetNetworkCoverageConfigRequest {}
-export interface GetNetworkCoverageConfigResponse {
-  regions: NetworkCoverageRegion[]
+export interface GetSharedPlanBenefitsConfigRequest {}
+export interface GetSharedPlanBenefitsConfigResponse {
+  speed_limit_mbps: number // 统一展示的最高连接速度，单位 Mbps（int32）
+  max_devices: number // 统一展示的支持设备数，单位：台（int32）
+  regions: SharedPlanBenefitRegion[]
   revision: string | number // uint64 十进制字符串（网关亦可能下行为数字）
   updated_at: string | number // int64 秒级（JS_NUMBER）
 }
-export interface UpdateNetworkCoverageConfigRequest {
-  regions: NetworkCoverageRegion[]
+export interface UpdateSharedPlanBenefitsConfigRequest {
+  speed_limit_mbps: number
+  max_devices: number
+  regions: SharedPlanBenefitRegion[]
   expected_revision: string | number // 必须等于当前修订号，否则 Conflict
 }
-export interface UpdateNetworkCoverageConfigResponse {
+export interface UpdateSharedPlanBenefitsConfigResponse {
   success: boolean
   revision: string | number
   updated_at: string | number
@@ -367,8 +382,8 @@ export interface AdminContract {
   ListAppVersions: { req: ListAppVersionsRequest; res: ListAppVersionsResponse }
   PublishAppVersion: { req: PublishAppVersionRequest; res: PublishAppVersionResponse }
   DisableAppVersion: { req: DisableAppVersionRequest; res: DisableAppVersionResponse }
-  GetNetworkCoverageConfig: { req: GetNetworkCoverageConfigRequest; res: GetNetworkCoverageConfigResponse }
-  UpdateNetworkCoverageConfig: { req: UpdateNetworkCoverageConfigRequest; res: UpdateNetworkCoverageConfigResponse }
+  GetSharedPlanBenefitsConfig: { req: GetSharedPlanBenefitsConfigRequest; res: GetSharedPlanBenefitsConfigResponse }
+  UpdateSharedPlanBenefitsConfig: { req: UpdateSharedPlanBenefitsConfigRequest; res: UpdateSharedPlanBenefitsConfigResponse }
   ListFeedback: { req: ListFeedbackRequest; res: ListFeedbackResponse }
   GetFeedbackDetail: { req: GetFeedbackDetailRequest; res: GetFeedbackDetailResponse }
   UpdateFeedbackStatus: { req: UpdateFeedbackStatusRequest; res: UpdateFeedbackStatusResponse }

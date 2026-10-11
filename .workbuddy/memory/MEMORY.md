@@ -62,4 +62,11 @@
 - **鉴权检查点**：① 网关边缘校验用户 JWT（`jwt.key=starlandttfuo101`）；② 文件服务校验上传用的用户 JWT（`JWT_SECRET=starlandttfuo101`）。
 - **admin 是否回查文件服务**：api.md §5 写"不再回查"，但当前 admin 代码仍会 `HEAD /api/v1/app-releases/{file_id}` 回查（日志可见），且使用默认 `127.0.0.1:8061`（未配置 `file_service` 段时）。这会导致发布在字段补齐后仍可能因回查 403 失败，需后端统一改代码或配通 `file_service.service_token`。
 - admin 配置关键项：`app_release.public_base_url`(须为 HTTPS origin，否则 admin 启动报错)。
-- SSH 入口：本机 `~/.ssh/config` 的 `develop-hy`(47.120.10.73)、`develop-tg`(106.52.77.108)；服务启停走各自 `/opt/<svc>/setup.sh start`，部分已注册 systemd（login/gateway 用 `systemctl restart starland-login starland-gateway`，admin 用 setup.sh 因未注册 systemd 单元）。
+
+## openresty 配置清理（[2026-10-11] 实测并执行）
+- **背景**：`/opt/update` 已于 9/22 删除，但 nginx.conf 仍有多处引用，且存在已废弃的静态下载块。
+- **改动 1（修复断链）**：`location = /50x.html` 与 `location = /404.html` 的 `root /opt/update;` → 改为 `root /usr/local/openresty/nginx/html;`（避免引用已删除目录导致错误页自身 404/500）；并在该 html 目录补建 `404.html`（50x.html 自带）。
+- **改动 2（删除无效配置）**：移除废弃的 `location ~ ^/(windows|mac|android)/` 静态下载块（早期从 `/opt/update` 静态托管安装包的设计，现安装包统一走 `/api/v1/app-releases/`→MinIO，该块指向的内容根本不存在）。
+- **验证**：`nginx -t` 通过；graceful reload（`nginx -s reload`，等价于零停机重启）后新 worker 生效；探测 `root=200`、`/windows/foo.exe=200`(SPA fallback，证实旧块已移除)、`/api/v1/app-releases/` 与 `/startlandapi` 代理均健康（非 5xx）。
+- **备份**：`/usr/local/openresty/nginx/conf/nginx.conf.bak-20261011124541`。
+- 备注：文件末尾被注释的"未来 HTTPS 模板"仍引用 `/opt/update`，已注释无害，未动；文件顶部"当前仅 HTTP"注释与现网 443 实际生效不一致（属注释失真，非配置错误）。

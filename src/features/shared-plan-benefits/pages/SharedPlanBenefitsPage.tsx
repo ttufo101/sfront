@@ -1,18 +1,18 @@
-// 网络覆盖配置页（/network-coverage）：读取并整体维护「地区 → 地点」两级可配置列表。
-// 后端仅保存这两级（主标语/副标题等由 C 端写死），整体替换 + 乐观锁 expected_revision。
+// 套餐共享权益配置页（/shared-plan-benefits）：读取并整体维护「连接性能 + 地区 → 地点」共享权益配置。
+// 替代原网络覆盖配置页。整体替换 + 乐观锁 expected_revision。
 
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useXrpcQuery, useXrpcMutation } from '@/lib/xrpc/hooks'
 import { XrpcError } from '@/lib/xrpc/types'
 import {
-  NetworkCoverageRegion,
-  NetworkCoverageLocation,
+  SharedPlanBenefitRegion,
+  SharedPlanBenefitLocation,
 } from '@/lib/xrpc/admin-contract'
 import {
-  getNetworkCoverageConfig,
-  updateNetworkCoverageConfig,
-} from '../api/networkCoverage'
+  getSharedPlanBenefitsConfig,
+  updateSharedPlanBenefitsConfig,
+} from '../api/sharedPlanBenefits'
 import { PageHeader } from '@/components/common/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,7 +21,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 
-// 与后端 service/network_coverage.go 校验规则对齐
+// 与后端 service/shared_plan_benefits.go 校验规则对齐
 const COVERAGE_CODE_PATTERN = /^[a-z][a-z0-9_]{0,31}$/
 const MAX_DISPLAY_NAME = 32
 const MAX_REGIONS = 20
@@ -31,10 +31,20 @@ function runeLen(s: string): number {
   return [...s].length
 }
 
-type CoverageErrors = string[]
+type BenefitErrors = string[]
 
-function validateCoverage(regions: NetworkCoverageRegion[]): CoverageErrors {
-  const errors: CoverageErrors = []
+function validateBenefits(
+  speedLimitMbps: number,
+  maxDevices: number,
+  regions: SharedPlanBenefitRegion[],
+): BenefitErrors {
+  const errors: BenefitErrors = []
+  if (!Number.isInteger(speedLimitMbps) || speedLimitMbps < 0) {
+    errors.push('最高连接速度（Mbps）必须为非负整数')
+  }
+  if (!Number.isInteger(maxDevices) || maxDevices < 0) {
+    errors.push('支持设备数必须为非负整数')
+  }
   if (regions.length > MAX_REGIONS) {
     errors.push(`地区数量不能超过 ${MAX_REGIONS} 个`)
   }
@@ -69,6 +79,10 @@ function validateCoverage(regions: NetworkCoverageRegion[]): CoverageErrors {
       if (!l.display_name) errors.push(`地点「${lLabel}」名称不能为空（${rLabel}）`)
       else if (runeLen(l.display_name) > MAX_DISPLAY_NAME)
         errors.push(`地点「${lLabel}」名称不超过 ${MAX_DISPLAY_NAME} 字（${rLabel}）`)
+
+      if (!Number.isInteger(l.connection_point_count) || l.connection_point_count < 0) {
+        errors.push(`地点「${lLabel}」连接地点数量必须为非负整数（${rLabel}）`)
+      }
     }
   }
   return errors
@@ -81,23 +95,26 @@ function fmtTs(v: string | number | undefined): string {
   return new Date(n * 1000).toLocaleString('zh-CN', { hour12: false })
 }
 
-function cloneRegions(regions: NetworkCoverageRegion[]): NetworkCoverageRegion[] {
+function cloneRegions(regions: SharedPlanBenefitRegion[]): SharedPlanBenefitRegion[] {
   return regions.map((r) => ({
     code: r.code,
     display_name: r.display_name,
-    locations: r.locations.map((l: NetworkCoverageLocation) => ({
+    locations: r.locations.map((l: SharedPlanBenefitLocation) => ({
       code: l.code,
       display_name: l.display_name,
+      connection_point_count: l.connection_point_count,
     })),
   }))
 }
 
-export function NetworkCoveragePage() {
+export function SharedPlanBenefitsPage() {
   // 直接走 hook 拉数据；保存时调用封装好的 API（含乐观锁）。
-  const { data, loading, error, refetch } = useXrpcQuery('GetNetworkCoverageConfig', {})
-  const updateMut = useXrpcMutation('UpdateNetworkCoverageConfig')
+  const { data, loading, error, refetch } = useXrpcQuery('GetSharedPlanBenefitsConfig', {})
+  const updateMut = useXrpcMutation('UpdateSharedPlanBenefitsConfig')
 
-  const [regions, setRegions] = useState<NetworkCoverageRegion[]>([])
+  const [speedLimitMbps, setSpeedLimitMbps] = useState<number>(0)
+  const [maxDevices, setMaxDevices] = useState<number>(0)
+  const [regions, setRegions] = useState<SharedPlanBenefitRegion[]>([])
   const [revision, setRevision] = useState<string | number>(0)
   const [updatedAt, setUpdatedAt] = useState<string | number | undefined>(undefined)
   const [dirty, setDirty] = useState(false)
@@ -105,6 +122,8 @@ export function NetworkCoveragePage() {
 
   useEffect(() => {
     if (data) {
+      setSpeedLimitMbps(data.speed_limit_mbps ?? 0)
+      setMaxDevices(data.max_devices ?? 0)
       setRegions(cloneRegions(data.regions ?? []))
       setRevision(data.revision)
       setUpdatedAt(data.updated_at)
@@ -112,15 +131,18 @@ export function NetworkCoveragePage() {
     }
   }, [data])
 
-  const errors = useMemo(() => validateCoverage(regions), [regions])
+  const errors = useMemo(
+    () => validateBenefits(speedLimitMbps, maxDevices, regions),
+    [speedLimitMbps, maxDevices, regions],
+  )
   const hasError = errors.length > 0
 
-  const setRegionsDirty = (next: NetworkCoverageRegion[]) => {
+  const setRegionsDirty = (next: SharedPlanBenefitRegion[]) => {
     setRegions(next)
     setDirty(true)
   }
 
-  const updateRegion = (ri: number, patch: Partial<NetworkCoverageRegion>) =>
+  const updateRegion = (ri: number, patch: Partial<SharedPlanBenefitRegion>) =>
     setRegionsDirty(regions.map((r, i) => (i === ri ? { ...r, ...patch } : r)))
 
   const addRegion = () =>
@@ -132,7 +154,7 @@ export function NetworkCoveragePage() {
   const updateLocation = (
     ri: number,
     li: number,
-    patch: Partial<NetworkCoverageLocation>,
+    patch: Partial<SharedPlanBenefitLocation>,
   ) =>
     setRegionsDirty(
       regions.map((r, i) =>
@@ -145,7 +167,9 @@ export function NetworkCoveragePage() {
   const addLocation = (ri: number) =>
     setRegionsDirty(
       regions.map((r, i) =>
-        i === ri ? { ...r, locations: [...r.locations, { code: '', display_name: '' }] } : r,
+        i === ri
+          ? { ...r, locations: [...r.locations, { code: '', display_name: '', connection_point_count: 0 }] }
+          : r,
       ),
     )
 
@@ -157,21 +181,23 @@ export function NetworkCoveragePage() {
     )
 
   const save = async () => {
-    const errs = validateCoverage(regions)
+    const errs = validateBenefits(speedLimitMbps, maxDevices, regions)
     if (errs.length) {
       toast.error(`校验未通过：${errs[0]}`)
       return
     }
     setSaving(true)
     try {
-      const res = await updateNetworkCoverageConfig({
+      const res = await updateSharedPlanBenefitsConfig({
+        speed_limit_mbps: speedLimitMbps,
+        max_devices: maxDevices,
         regions,
         expected_revision: revision,
       })
       setRevision(res.revision)
       setUpdatedAt(res.updated_at)
       setDirty(false)
-      toast.success('网络覆盖配置已保存')
+      toast.success('共享权益配置已保存')
     } catch (e) {
       const xe = e as XrpcError
       const msg = xe.message || '保存失败'
@@ -190,8 +216,8 @@ export function NetworkCoveragePage() {
   return (
     <div>
       <PageHeader
-        title="网络覆盖配置"
-        description="维护 C 端「网络覆盖」页可展示的地区与地点。主标语/副标题/底部说明/按钮文案由客户端写死，此处不配置。"
+        title="套餐共享权益配置"
+        description="维护所有套餐共享的连接性能（最高连接速度、支持设备数）与网络覆盖地区/地点。主标语/副标题等由客户端写死，此处不配置。"
         actions={
           <>
             {dirty && !hasError && <Badge variant="warning">未保存</Badge>}
@@ -217,6 +243,37 @@ export function NetworkCoveragePage() {
           <div className="text-xs text-muted-foreground">
             当前修订号 revision：{String(revision)} ｜ 最近更新：{fmtTs(updatedAt)}
           </div>
+
+          {/* 连接性能 */}
+          <Card className="space-y-3 p-4">
+            <div className="text-sm font-medium">连接性能</div>
+            <div className="flex flex-wrap gap-4">
+              <div className="w-48 space-y-1">
+                <Label>最高连接速度（Mbps）</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={speedLimitMbps}
+                  onChange={(e) =>
+                    setSpeedLimitMbps(e.target.value === '' ? 0 : Number(e.target.value))
+                  }
+                />
+              </div>
+              <div className="w-48 space-y-1">
+                <Label>支持设备数（台）</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={maxDevices}
+                  onChange={(e) =>
+                    setMaxDevices(e.target.value === '' ? 0 : Number(e.target.value))
+                  }
+                />
+              </div>
+            </div>
+          </Card>
 
           {regions.length === 0 && (
             <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
@@ -273,18 +330,27 @@ export function NetworkCoveragePage() {
                     <Input
                       className="flex-1"
                       value={loc.code}
-                      onChange={(e) =>
-                        updateLocation(ri, li, { code: e.target.value.trim() })
-                      }
+                      onChange={(e) => updateLocation(ri, li, { code: e.target.value.trim() })}
                       placeholder="如 jp"
                     />
                     <Input
                       className="flex-1"
                       value={loc.display_name}
-                      onChange={(e) =>
-                        updateLocation(ri, li, { display_name: e.target.value })
-                      }
+                      onChange={(e) => updateLocation(ri, li, { display_name: e.target.value })}
                       placeholder="如 日本"
+                    />
+                    <Input
+                      className="w-28"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={loc.connection_point_count}
+                      onChange={(e) =>
+                        updateLocation(ri, li, {
+                          connection_point_count: e.target.value === '' ? 0 : Number(e.target.value),
+                        })
+                      }
+                      placeholder="连接点数"
                     />
                     <Button
                       variant="ghost"
@@ -321,7 +387,7 @@ export function NetworkCoveragePage() {
 
       <p className="mt-2 text-xs text-muted-foreground">
         说明：配置整体替换，顺序即 C 端展示顺序。保存时携带当前 revision 做乐观锁，若期间被他人修改会提示重新加载。
-        code 规则：小写字母开头，后续仅小写字母/数字/下划线，最长 32；名称最长 32 字；地区最多 {MAX_REGIONS} 个，单地区地点最多 {MAX_LOCATIONS} 个。
+        code 规则：小写字母开头，后续仅小写字母/数字/下划线，最长 32；名称最长 32 字；地区最多 {MAX_REGIONS} 个，单地区地点最多 {MAX_LOCATIONS} 个；连接速度与设备数为非负整数。
       </p>
     </div>
   )
