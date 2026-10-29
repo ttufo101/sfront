@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { LogOut, Users, Package, Gift, Network, Megaphone, Server, UploadCloud, MessageSquare, Globe, ServerCog, SlidersHorizontal, Receipt, UserCheck } from 'lucide-react'
+import { LogOut, Users, Package, Gift, Network, Megaphone, Server, UploadCloud, MessageSquare, Globe, ServerCog, Receipt, UserCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
 import { Button } from '@/components/ui/button'
@@ -12,11 +12,10 @@ const NAV = [
   { to: '/orders?payment_status=manual_review', label: '人工审核', icon: UserCheck },
   { to: '/proxy', label: '代理配置', icon: Server },
   { to: '/data-plane-nodes', label: '节点管理', icon: ServerCog },
-  { to: '/shared-benefits', label: '共享权益', icon: SlidersHorizontal },
   { to: '/releases', label: '版本发布', icon: UploadCloud },
   { to: '/feedback', label: '用户反馈', icon: MessageSquare },
   { to: '/announcements', label: '公告管理', icon: Megaphone },
-  { to: '/network-coverage', label: '网络覆盖', icon: Globe },
+  { to: '/shared-plan-benefits', label: '共享权益', icon: Globe },
 ]
 
 export function AdminLayout() {

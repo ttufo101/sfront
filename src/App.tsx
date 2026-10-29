@@ -12,10 +12,9 @@ import { AnnouncementsPage } from '@/features/announcements/pages/AnnouncementsP
 import { ReleasesPage } from '@/features/releases/pages/ReleasesPage'
 import { ReleaseUploadPage } from '@/features/releases/pages/ReleaseUploadPage'
 import { FeedbackPage } from '@/features/feedback/pages/FeedbackPage'
-import { NetworkCoveragePage } from '@/features/network-coverage/pages/NetworkCoveragePage'
+import { SharedPlanBenefitsPage } from '@/features/shared-plan-benefits/pages/SharedPlanBenefitsPage'
 import { DataPlaneNodesPage } from '@/features/data-plane-nodes/pages/DataPlaneNodesPage'
 import { UserRelayAssignmentPage } from '@/features/data-plane-nodes/pages/UserRelayAssignmentPage'
-import { SharedBenefitsPage } from '@/features/shared-benefits/pages/SharedBenefitsPage'
 import { OrdersPage } from '@/features/orders/pages/OrdersPage'
 
 export default function App() {
@@ -40,10 +39,9 @@ export default function App() {
         <Route path="/releases/new" element={<ReleaseUploadPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
         <Route path="/announcements" element={<AnnouncementsPage />} />
-        <Route path="/network-coverage" element={<NetworkCoveragePage />} />
         <Route path="/data-plane-nodes" element={<DataPlaneNodesPage />} />
         <Route path="/users/relay/:uid" element={<UserRelayAssignmentPage />} />
-        <Route path="/shared-benefits" element={<SharedBenefitsPage />} />
+        <Route path="/shared-plan-benefits" element={<SharedPlanBenefitsPage />} />
         <Route path="/orders" element={<OrdersPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

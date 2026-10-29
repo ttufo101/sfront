@@ -14,6 +14,8 @@ export function listAppVersions(params: ListAppVersionsRequest): Promise<ListApp
   return adminCall('ListAppVersions', {
     platform: params.platform ?? '',
     include_history: params.include_history ?? false,
+    ...(params.page != null ? { page: params.page } : {}),
+    ...(params.page_size != null ? { page_size: params.page_size } : {}),
   } as ListAppVersionsRequest)
 }
 

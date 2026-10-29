@@ -75,3 +75,11 @@
 - **部署回顾**：fileupload 源码 `/root/fileupload`（deploy-tg，非 git 库，改前 4 文件留 `.bak`），`go build` 后二进制拷 `/opt/fileupload/bin/fileupload`（旧档 `fileupload.prev`），`systemctl restart fileupload`；env 追加 `SERVICE_TOKEN`；前端 tar 解包 `/opt/starland-admin-web` + `systemctl reload openresty`。
 - **安全说明**：服务令牌仅授予反馈图片跨 owner 读取，已嵌入前端 bundle（内网管理工具，暴露面有限）；C 端 app 不持令牌故 owner 隔离仍生效。**建议**：轮换曾暴露的 admin 密码 `Liuqwaszx123` 与服务器 root 密码 `Liu*2024`；如需更严可改 admin 后端中继取图。
 - **源码位置（已获 SSH root 访问）**：fileupload `/root/fileupload`（deploy-tg，关键 `internal/service/file.go`/`handler/file.go`/`server/router.go`/`config/config.go`/`cmd/server/main.go`）；admin `/root/sproj/starland/apps/admin`（deploy-hy，关键 `internal/service/feedback_files.go`）。SSH 凭据见 readme，密码勿入版本库。
+
+## openresty 配置清理（[2026-10-11] 实测并执行）
+- **背景**：`/opt/update` 已于 9/22 删除，但 nginx.conf 仍有多处引用，且存在已废弃的静态下载块。
+- **改动 1（修复断链）**：`location = /50x.html` 与 `location = /404.html` 的 `root /opt/update;` → 改为 `root /usr/local/openresty/nginx/html;`（避免引用已删除目录导致错误页自身 404/500）；并在该 html 目录补建 `404.html`（50x.html 自带）。
+- **改动 2（删除无效配置）**：移除废弃的 `location ~ ^/(windows|mac|android)/` 静态下载块（早期从 `/opt/update` 静态托管安装包的设计，现安装包统一走 `/api/v1/app-releases/`→MinIO，该块指向的内容根本不存在）。
+- **验证**：`nginx -t` 通过；graceful reload（`nginx -s reload`，等价于零停机重启）后新 worker 生效；探测 `root=200`、`/windows/foo.exe=200`(SPA fallback，证实旧块已移除)、`/api/v1/app-releases/` 与 `/startlandapi` 代理均健康（非 5xx）。
+- **备份**：`/usr/local/openresty/nginx/conf/nginx.conf.bak-20261011124541`。
+- 备注：文件末尾被注释的"未来 HTTPS 模板"仍引用 `/opt/update`，已注释无害，未动；文件顶部"当前仅 HTTP"注释与现网 443 实际生效不一致（属注释失真，非配置错误）。

@@ -269,6 +269,9 @@ export function PlansPage() {
             <Field label="描述">
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </Field>
+            <Field label="角标（可选，如“限时”“热门”）">
+              <Input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} placeholder="留空表示无角标" />
+            </Field>
             <div className="flex items-center justify-between">
               <Label>设为推荐套餐</Label>
               <Switch checked={form.recommended} onCheckedChange={(v) => setForm({ ...form, recommended: v })} />
@@ -277,9 +280,6 @@ export function PlansPage() {
               <Label>新人专享套餐</Label>
               <Switch checked={form.new_user_only} onCheckedChange={(v) => setForm({ ...form, new_user_only: v })} />
             </div>
-            <Field label="套餐角标（如「限时特惠」）">
-              <Input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} placeholder="可选，展示在套餐名称旁" />
-            </Field>
             {editing && (
               <div className="flex items-center justify-between">
                 <Label>启用</Label>
