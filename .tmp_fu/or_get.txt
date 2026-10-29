@@ -1,0 +1,51 @@
+            proxy_set_header X-Request-ID $request_id;
+            proxy_pass http://fileupload_backend;
+        }
+
+        # ---------- 日志和反馈图片：用户只能下载本人文件 ----------
+        location ~ "^/api/v1/(log-files|feedback-files)/[0-9a-fA-F-]{36}$" {
+            limit_except GET OPTIONS {
+                deny all;
+            }
+
+            if ($request_method = OPTIONS) {
+                add_header Access-Control-Allow-Origin $http_origin always;
+                add_header Access-Control-Allow-Methods "GET, OPTIONS" always;
+                add_header Access-Control-Allow-Headers "Authorization, Range, X-Request-ID" always;
+                add_header Access-Control-Max-Age 600 always;
+                add_header Vary Origin always;
+                return 204;
+            }
+
+            add_header Access-Control-Allow-Origin $http_origin always;
+            add_header Access-Control-Expose-Headers "Content-Disposition, Content-Length, Content-Range, ETag, X-Request-ID" always;
+            add_header Vary Origin always;
+
+            proxy_buffering off;
+            proxy_read_timeout 10m;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            proxy_set_header Host $host;
+            proxy_set_header Authorization $http_authorization;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Request-ID $request_id;
+            proxy_pass http://fileupload_backend;
+        }
+
+        # ---------- 安装包公开下载：升级流程不依赖登录态 ----------
+        location ~ "^/api/v1/app-releases/[0-9a-fA-F-]{36}$" {
+            limit_except GET OPTIONS {
+                deny all;
+            }
+
+            if ($request_method = OPTIONS) {
+                add_header Access-Control-Allow-Origin $http_origin always;
+                add_header Access-Control-Allow-Methods "GET, OPTIONS" always;
+                add_header Access-Control-Allow-Headers "Range, X-Request-ID" always;
+                add_header Access-Control-Max-Age 600 always;
+                add_header Vary Origin always;
+                return 204;
+            }
+

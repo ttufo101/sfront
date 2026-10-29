@@ -96,6 +96,9 @@ export function UsersPage() {
                       <Button variant="link" size="sm" onClick={() => navigate(`/users/${encodeURIComponent(u.email)}/subscriptions`)}>
                         查看套餐
                       </Button>
+                      <Button variant="link" size="sm" onClick={() => navigate(`/users/relay/${u.uid}`)}>
+                        中转节点
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -120,7 +123,7 @@ export function UsersPage() {
       )}
 
       {data && data.users.length > 0 && (
-        <p className="mt-2 text-xs text-muted-foreground">提示：点击“查看设备”可查看该用户绑定的设备列表，点击“查看套餐”可查看其时间与流量订阅。</p>
+        <p className="mt-2 text-xs text-muted-foreground">提示：点击“查看设备”可查看该用户绑定的设备列表，点击“查看套餐”可查看其时间与流量订阅，点击“中转节点”可配置其固定中转节点分配。</p>
       )}
     </div>
   )

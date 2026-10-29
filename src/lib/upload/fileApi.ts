@@ -80,6 +80,52 @@ export function getAppReleaseDownloadUrl(fileId: string): string {
   return resolveFileUrl(`/api/v1/app-releases/${fileId}`)
 }
 
+/**
+ * 诊断日志下载链接：C 端日志走 /api/v1/log-files/{file_id}，**私有接口，需带 access token**。
+ * 注意：不能用 window.open 直接打开（新标签页不会携带 JWT），必须由前端 fetch 附带
+ * Authorization 头后再以 blob 触发本地下载。沿用 fileApiBase，生产即 https://106.52.77.108。
+ */
+export function getDiagnosticLogDownloadUrl(fileId: string): string {
+  return resolveFileUrl(`/api/v1/log-files/${fileId}`)
+}
+
+/**
+ * 反馈图片显示地址：相对 /api/v1/feedback-files/{file_id}。
+ * 生产 fileApiBase 置空 → 该地址与 admin 页面同源（openresty 同时托管前端与 /api/v1 反代），
+ * 不跨域、不触发混合内容拦截。
+ *
+ * 注意：线上 fileupload 的 feedback-files GET **仍要求管理员 Bearer token**（无 token 返回 401），
+ * 因此浏览器 <img src=url> 无法直接加载（不带 Authorization）。必须由前端 fetch 带 token 取 blob 后渲染。
+ * 即便后端未来把 GET 改为公开，带 token 取图也是无害且更稳妥的写法。
+ */
+export function getFeedbackImageUrl(fileId: string): string {
+  return resolveFileUrl(`/api/v1/feedback-files/${fileId}`)
+}
+
+/**
+ * 带管理员 Bearer token 取反馈图片二进制，返回 blob objectURL 供 <img> 渲染。
+ * 调用方负责在不再需要时 revokeObjectURL 释放。
+ */
+export async function fetchFeedbackImageBlob(fileId: string): Promise<string> {
+  const url = getFeedbackImageUrl(fileId)
+  const token = await getValidAccessToken()
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  // 反馈图片为跨 owner 资源：带管理员 Bearer 的同时携带服务令牌，fileupload 据此跳过
+  // owner 校验（仅反馈图片 handler 开启该旁路，日志/安装包仍保持 owner 隔离）。
+  if (config.fileServiceToken) headers['X-Service-Token'] = config.fileServiceToken
+  const res = await fetch(url, { headers })
+  if (!res.ok) {
+    throw new FileUploadError(`HTTP_${res.status}`, `图片加载失败（HTTP ${res.status}）`, undefined, {
+      status: res.status,
+      url,
+      tokenUserId: token ? getAccessTokenUserId(token) : null,
+    })
+  }
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
+}
+
 export async function uploadAppRelease(
   file: File,
   opts: UploadAppReleaseOptions,

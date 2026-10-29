@@ -1,0 +1,19 @@
+/root/fileupload/bin:
+total 16040
+drwxr-xr-x 2 root root     4096 Oct 27 16:25 .
+drwxr-xr-x 8 root root     4096 Oct 27 16:26 ..
+-rwxr-xr-x 1 root root 16412856 Oct 27 16:25 fileupload
+
+/root/fileupload/deploy:
+total 32
+drwxr-xr-x 2 root root  4096 Oct 11 12:03 .
+drwxr-xr-x 8 root root  4096 Oct 27 16:26 ..
+-rw-r--r-- 1 root root   599 Sep 19 16:36 fileupload.service
+-rw-r--r-- 1 root root 15342 Oct 27 16:26 openresty-nginx.conf
+-rw-r--r-- 1 root root   752 Sep 19 16:56 openresty.service
+
+/root/fileupload/scripts:
+total 12
+drwxr-xr-x 2 root root 4096 Sep 19 16:36 .
+drwxr-xr-x 8 root root 4096 Oct 27 16:26 ..
+-rwxr-xr-x 1 root root 2501 Sep 19 16:36 install.sh

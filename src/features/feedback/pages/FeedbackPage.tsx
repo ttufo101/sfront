@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useXrpcQuery } from '@/lib/xrpc/hooks'
 import { formatBytes, formatTimestamp, toNumberSafe } from '@/lib/format'
-import { AdminFeedbackTicket } from '@/lib/xrpc/admin-contract'
+import { AdminFeedbackTicket, type FeedbackAttachment } from '@/lib/xrpc/admin-contract'
 import { getFeedbackDetail, listFeedback, updateFeedbackStatus } from '@/features/feedback/api/feedback'
-import { getAppReleaseDownloadUrl } from '@/lib/upload/fileApi'
+import { AttachmentGallery, Lightbox } from '@/features/feedback/components/AttachmentGallery'
+import { getDiagnosticLogDownloadUrl } from '@/lib/upload/fileApi'
+import { getValidAccessToken } from '@/lib/auth/session'
 import { PageHeader, StateBlock } from '@/components/common/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -84,6 +86,7 @@ export function FeedbackPage() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [statusDraft, setStatusDraft] = useState('')
   const [saving, setSaving] = useState(false)
+  const [zoom, setZoom] = useState<FeedbackAttachment | null>(null)
 
   const openDetail = async (id: string) => {
     setDetailLoading(true)
@@ -120,6 +123,43 @@ export function FeedbackPage() {
     () => !!detail && detail.ticket_type === 'diagnostic' && !!detail.file_id,
     [detail],
   )
+
+  const [downloading, setDownloading] = useState(false)
+  // 诊断日志是私有接口（/api/v1/log-files/{id}），必须带管理员 Bearer token；
+  // 新标签页 window.open 无法携带 JWT，故用 fetch + blob 触发本地下载。
+  const downloadLog = async () => {
+    if (!detail?.file_id) return
+    setDownloading(true)
+    try {
+      const token = await getValidAccessToken()
+      const res = await fetch(getDiagnosticLogDownloadUrl(detail.file_id), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!res.ok) {
+        toast.error(`下载失败（HTTP ${res.status}）`)
+        return
+      }
+      const blob = await res.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = detail.file_name || detail.file_id
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(objectUrl)
+      toast.success('已开始下载')
+    } catch (e) {
+      // 网络层失败（fetch 直接 reject）：通常是证书未被浏览器信任、跨域被拦截或目标不可达。
+      // 给出可操作的提示，方便用户对照控制台 net::ERR_CERT / CORS 报错定位。
+      const msg = e instanceof TypeError
+        ? '下载失败：网络连接被阻止。请确认浏览器已信任 106.52.77.108 的自签名证书，或检查控制台是否有 net::ERR_CERT / CORS 报错'
+        : (e as Error).message || '下载失败'
+      toast.error(msg)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <div>
@@ -265,11 +305,13 @@ export function FeedbackPage() {
                     {formatBytes(detail.size_bytes)} · {detail.content_type || '未知类型'}
                   </p>
                   <p className="break-all font-mono text-xs text-muted-foreground">SHA256: {detail.sha256 || '-'}</p>
-                  <Button variant="outline" size="sm" className="mt-1" onClick={() => window.open(getAppReleaseDownloadUrl(detail.file_id), '_blank')}>
-                    下载日志
+                  <Button variant="outline" size="sm" className="mt-1" onClick={downloadLog} disabled={downloading}>
+                    {downloading ? '下载中…' : '下载日志'}
                   </Button>
                 </div>
               )}
+
+              <AttachmentGallery attachments={detail.attachments} onZoom={setZoom} />
 
               <div className="space-y-2 border-t pt-4">
                 <Label>处理状态</Label>
@@ -294,6 +336,8 @@ export function FeedbackPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Lightbox att={zoom} onClose={() => setZoom(null)} />
     </div>
   )
 }

@@ -27,12 +27,12 @@ interface FormState {
   plan_type: string
   duration_days: string
   traffic_gb: string
-  speed_limit_mbps: string
-  max_devices: string
   price_yuan: string
   currency: string
   description: string
   recommended: boolean
+  new_user_only: boolean
+  badge: string
   status: number
 }
 
@@ -42,12 +42,12 @@ const emptyForm = (): FormState => ({
   plan_type: 'time',
   duration_days: '30',
   traffic_gb: '0',
-  speed_limit_mbps: '0',
-  max_devices: '3',
   price_yuan: '0',
   currency: 'CNY',
   description: '',
   recommended: false,
+  new_user_only: false,
+  badge: '',
   status: 1,
 })
 
@@ -58,12 +58,12 @@ function planToForm(p: PlanInfo): FormState {
     plan_type: p.plan_type,
     duration_days: String(p.duration_days),
     traffic_gb: String(toNumberSafe(p.traffic_bytes) / 1e9),
-    speed_limit_mbps: String(p.speed_limit_mbps),
-    max_devices: String(p.max_devices),
     price_yuan: String(toNumberSafe(p.price_amount) / 100),
     currency: p.currency,
     description: p.description,
     recommended: p.recommended,
+    new_user_only: p.new_user_only,
+    badge: p.badge,
     status: p.status,
   }
 }
@@ -95,13 +95,13 @@ export function PlansPage() {
       plan_type: form.plan_type,
       duration_days: toNumberSafe(form.duration_days),
       traffic_bytes: String(Math.round(toNumberSafe(form.traffic_gb) * 1e9)),
-      speed_limit_mbps: toNumberSafe(form.speed_limit_mbps),
-      max_devices: toNumberSafe(form.max_devices),
       description: form.description,
       price_amount: String(Math.round(toNumberSafe(form.price_yuan) * 100)),
       currency: form.currency,
       recommended: form.recommended,
-      ...(editing ? { status: form.status } : {}),
+      new_user_only: form.new_user_only,
+      badge: form.badge,
+      ...(editing ? { status: form.status, expected_revision: editing.revision } : {}),
     }
     try {
       if (editing) {
@@ -114,7 +114,15 @@ export function PlansPage() {
       setOpen(false)
       refetch()
     } catch (e) {
-      toast.error((e as Error).message)
+      const msg = (e as Error).message
+      // 版本冲突：套餐已被其他人修改，重新加载最新列表，避免旧内容覆盖
+      if (/conflict|revision|版本|已被|不一致|concurrent/i.test(msg)) {
+        toast.error('套餐已被其他人修改，已重新加载最新列表，请重新编辑后保存')
+        setOpen(false)
+        refetch()
+      } else {
+        toast.error(msg)
+      }
     }
   }
 
@@ -127,19 +135,26 @@ export function PlansPage() {
         plan_type: p.plan_type,
         duration_days: p.duration_days,
         traffic_bytes: p.traffic_bytes,
-        speed_limit_mbps: p.speed_limit_mbps,
-        max_devices: p.max_devices,
         description: p.description,
         price_amount: p.price_amount,
         currency: p.currency,
         recommended: p.recommended,
+        new_user_only: p.new_user_only,
+        badge: p.badge,
         status: next,
         sort: p.sort,
+        expected_revision: p.revision,
       })
       toast.success(next === 1 ? '已启用' : '已停用')
       refetch()
     } catch (e) {
-      toast.error((e as Error).message)
+      const msg = (e as Error).message
+      if (/conflict|revision|版本|已被|不一致|concurrent/i.test(msg)) {
+        toast.error('套餐已被其他人修改，已重新加载最新列表')
+        refetch()
+      } else {
+        toast.error(msg)
+      }
     }
   }
 
@@ -169,8 +184,8 @@ export function PlansPage() {
                 <TableHead>名称</TableHead>
                 <TableHead>类型</TableHead>
                 <TableHead>时长/流量</TableHead>
-                <TableHead>带宽</TableHead>
-                <TableHead>设备数</TableHead>
+                <TableHead>带宽·共享</TableHead>
+                <TableHead>设备数·共享</TableHead>
                 <TableHead>价格</TableHead>
                 <TableHead>状态</TableHead>
                 <TableHead className="text-right">操作</TableHead>
@@ -182,6 +197,8 @@ export function PlansPage() {
                   <TableCell className="font-medium">
                     {p.name}
                     {p.recommended && <Badge variant="default" className="ml-2">推荐</Badge>}
+                    {p.new_user_only && <Badge variant="secondary" className="ml-2">新人专享</Badge>}
+                    {p.badge && <Badge variant="outline" className="ml-2">{p.badge}</Badge>}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">{p.plan_type === 'time' ? '时长' : '流量'}</Badge>
@@ -245,14 +262,6 @@ export function PlansPage() {
                   <Input type="number" value={form.traffic_gb} onChange={(e) => setForm({ ...form, traffic_gb: e.target.value })} />
                 </Field>
               )}
-              <Field label="带宽 (Mbps, 0=不限)">
-                <Input type="number" value={form.speed_limit_mbps} onChange={(e) => setForm({ ...form, speed_limit_mbps: e.target.value })} />
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="最大设备数">
-                <Input type="number" value={form.max_devices} onChange={(e) => setForm({ ...form, max_devices: e.target.value })} />
-              </Field>
               <Field label="价格 (元)">
                 <Input type="number" value={form.price_yuan} onChange={(e) => setForm({ ...form, price_yuan: e.target.value })} />
               </Field>
@@ -264,6 +273,13 @@ export function PlansPage() {
               <Label>设为推荐套餐</Label>
               <Switch checked={form.recommended} onCheckedChange={(v) => setForm({ ...form, recommended: v })} />
             </div>
+            <div className="flex items-center justify-between">
+              <Label>新人专享套餐</Label>
+              <Switch checked={form.new_user_only} onCheckedChange={(v) => setForm({ ...form, new_user_only: v })} />
+            </div>
+            <Field label="套餐角标（如「限时特惠」）">
+              <Input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} placeholder="可选，展示在套餐名称旁" />
+            </Field>
             {editing && (
               <div className="flex items-center justify-between">
                 <Label>启用</Label>

@@ -1,0 +1,42 @@
+[Unit]
+Description=File Upload Service
+Wants=network-online.target
+After=network-online.target minio.service
+
+[Service]
+Type=simple
+User=fileupload
+Group=fileupload
+WorkingDirectory=/opt/fileupload
+EnvironmentFile=/opt/fileupload/config/fileupload.env
+ExecStart=/opt/fileupload/bin/fileupload
+Restart=on-failure
+RestartSec=3s
+TimeoutStopSec=20s
+LimitNOFILE=65536
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
+=====RUNNING=====
+fileupl+  345951       1  0 Oct27 ?        00:00:01 /opt/fileupload/bin/fileupload
+=====ENV FILES=====
+=====PROC ENV=====
+APP_ENV=production
+ALLOW_INSECURE_AUTH=false
+HTTP_ADDR=127.0.0.1:8080
+JWT_SECRET=***REDACTED***
+MINIO_ENDPOINT=127.0.0.1:9000
+MINIO_ACCESS_KEY=admin
+MINIO_SECRET_KEY=***REDACTED***
+MINIO_USE_SSL=false
+MINIO_BUCKET=fileupload

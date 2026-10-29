@@ -1,0 +1,34 @@
+=== openresty feedback location ===
+179:        location = /api/v1/feedback-files {
+180-            limit_except POST OPTIONS {
+181-                deny all;
+182-            }
+183-
+184-            if ($request_method = OPTIONS) {
+185-                add_header Access-Control-Allow-Origin $http_origin always;
+186-                add_header Access-Control-Allow-Methods "POST, OPTIONS" always;
+187-                add_header Access-Control-Allow-Headers "Authorization, Content-Type, Idempotency-Key, X-File-Size, X-File-SHA256, X-Request-ID" always;
+188-                add_header Access-Control-Max-Age 600 always;
+189-                add_header Vary Origin always;
+190-                return 204;
+191-            }
+--
+255:        location ~ "^/api/v1/(log-files|feedback-files)/[0-9a-fA-F-]{36}$" {
+256-            limit_except GET OPTIONS {
+257-                deny all;
+258-            }
+259-
+260-            if ($request_method = OPTIONS) {
+261-                add_header Access-Control-Allow-Origin $http_origin always;
+262-                add_header Access-Control-Allow-Methods "GET, OPTIONS" always;
+263-                add_header Access-Control-Allow-Headers "Authorization, Range, X-Request-ID" always;
+264-                add_header Access-Control-Max-Age 600 always;
+265-                add_header Vary Origin always;
+266-                return 204;
+267-            }
+=== go version ===
+go version go1.25.0 linux/amd64
+=== git status (root source) ===
+fatal: not a git repository (or any of the parent directories): .git
+=== branch ===
+fatal: not a git repository (or any of the parent directories): .git

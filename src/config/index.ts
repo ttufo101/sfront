@@ -9,6 +9,8 @@ interface AppConfig {
   devType: string
   /** 后台管理调用路径（统一网关） */
   adminEndpoint: string
+  /** 文件服务免 owner 校验的服务令牌（仅反馈图片下载使用，须与 fileupload SERVICE_TOKEN 一致） */
+  fileServiceToken: string
 }
 
 const env = import.meta.env
@@ -21,4 +23,5 @@ export const config: AppConfig = {
   devType: env.VITE_DEV_TYPE ?? 'pc',
   // 用户决策：统一网关由 /tools/adminapi 改为 /startlandapi
   adminEndpoint: '/startlandapi',
+  fileServiceToken: env.VITE_FILE_SERVICE_TOKEN ?? '',
 }

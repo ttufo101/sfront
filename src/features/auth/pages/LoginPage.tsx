@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../auth-context'
 import {
   clearRememberedEmail,
@@ -18,6 +19,7 @@ export function LoginPage() {
   const [email, setEmail] = useState(() => getRememberedEmail() ?? '')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(() => !!getRememberedEmail())
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
   if (authed) {
@@ -55,13 +57,26 @@ export function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">密码</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">提示：登录失败时可用右侧眼睛图标切换明文，核对输入是否有误。</p>
             </div>
             <div className="flex items-center gap-2">
               <input
