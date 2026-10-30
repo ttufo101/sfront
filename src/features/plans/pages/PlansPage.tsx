@@ -198,7 +198,11 @@ export function PlansPage() {
                     {p.name}
                     {p.recommended && <Badge variant="default" className="ml-2">推荐</Badge>}
                     {p.new_user_only && <Badge variant="secondary" className="ml-2">新人专享</Badge>}
-                    {p.badge && <Badge variant="outline" className="ml-2">{p.badge}</Badge>}
+                    {/* 自定义角标：当 new_user_only 已渲染「新人专享」且 badge 与之重复时跳过，避免重复标签；
+                        其余自定义角标（如「限时」）仍正常展示。 */}
+                    {p.badge && (!p.new_user_only || p.badge !== '新人专享') && (
+                      <Badge variant="outline" className="ml-2">{p.badge}</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">{p.plan_type === 'time' ? '时长' : '流量'}</Badge>

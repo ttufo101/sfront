@@ -7,6 +7,7 @@ import { getFeedbackDetail, listFeedback, updateFeedbackStatus } from '@/feature
 import { AttachmentGallery, Lightbox } from '@/features/feedback/components/AttachmentGallery'
 import { getDiagnosticLogDownloadUrl } from '@/lib/upload/fileApi'
 import { getValidAccessToken } from '@/lib/auth/session'
+import { config } from '@/config'
 import { PageHeader, StateBlock } from '@/components/common/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -131,10 +132,13 @@ export function FeedbackPage() {
     if (!detail?.file_id) return
     setDownloading(true)
     try {
-      const token = await getValidAccessToken()
-      const res = await fetch(getDiagnosticLogDownloadUrl(detail.file_id), {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
+    const token = await getValidAccessToken()
+    // 诊断日志与反馈图片同为跨 owner 资源：fileupload 的 GET 要求 owner 匹配，
+    // 管理员取他人日志须带 X-Service-Token，由后端 serviceTokenBypassesOwner 跳过 owner 校验
+    // （对齐反馈图片的下载逻辑，否则非上传者下载会返回 404）。
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+    if (config.fileServiceToken) headers['X-Service-Token'] = config.fileServiceToken
+    const res = await fetch(getDiagnosticLogDownloadUrl(detail.file_id), { headers })
       if (!res.ok) {
         toast.error(`下载失败（HTTP ${res.status}）`)
         return
