@@ -123,8 +123,9 @@ Admin 现已增加普通支付订单、支付会话及异常状态管理能力�
 - `ListOrders`：按订单号、邮箱/UID、业务状态、支付状态、支付方式、订单来源和时间范围分页；
 - `GetOrderDetail`：查看订单快照、固定支付信息、支付事件和错误摘要；
 - `RetryOrderFulfillment`：仅重试 `paid`、`fulfill_failed` 的权益发放。
+- `ReviewOrderPayment`：对 `manual_review` 订单做人工裁决（确认放行 / 驳回），为最终结论，替代自动对账；确认即标记 `paid` 并触发权益发放，驳回即 `closed`。
 
-订单查询和状态变更均通过 Order 内部 RPC 完成。Admin 不直接把订单标记为 `paid`、`success` 或 `closed`，也不提供无付款依据的“手工确认已付款”。
+订单查询和状态变更均通过 Order 内部 RPC 完成。人工审核（`manual_review`）由管理员据实裁决为最终结论：确认放行即标记 `paid`（权益由后台补偿循环或「重试发放」发放），驳回即标记 `closed` 并关闭订单；不再依赖自动对账。裁决需带 `operator_uid` / `client_request_id` / `operation_reason`，crypto 订单建议附链上交易哈希作为证据。
 
 详情可返回：
 

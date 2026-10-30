@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { LogOut, Users, Package, Gift, Network, Megaphone, Server, UploadCloud, MessageSquare, Globe, ServerCog, Receipt, UserCheck } from 'lucide-react'
+import { LogOut, Users, Package, Network, Megaphone, Server, UploadCloud, MessageSquare, Globe, ServerCog, Receipt, UserCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
 import { Button } from '@/components/ui/button'
@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 const NAV = [
   { to: '/users', label: '用户管理', icon: Users },
   { to: '/plans', label: '套餐管理', icon: Package },
-  { to: '/subscriptions', label: '用户权益', icon: Gift },
   { to: '/orders', label: '订单管理', icon: Receipt },
   { to: '/orders?payment_status=manual_review', label: '人工审核', icon: UserCheck },
   { to: '/proxy', label: '代理配置', icon: Server },

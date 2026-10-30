@@ -567,6 +567,25 @@ export interface AdminRetryOrderFulfillmentResponse {
   status: string // 重试后的订单业务状态
 }
 
+// ---- 人工审核裁决（确认放行 / 驳回）----
+// 仅针对 payment_status=manual_review 的订单：
+// - approve（确认放行）：把支付会话 manual_review→paid、订单 paying→paid，由后台每 5 秒的补偿循环
+//   或「重试发放」完成权益发放（本接口不负责发放，复用既有链路）。
+// - reject（驳回）：把支付会话 manual_review→failed、订单 paying→closed，不发放权益。
+// operator_uid 由网关 session 注入，前端只传决策 decision、裁决依据 operation_reason（必填）
+// 以及可选的 evidence（链上交易哈希等支付证据，crypto 订单建议必填作为判定依据）。
+// 该裁决为最终结论，替代自动对账（详见 admin.md §3.4）。
+export interface ReviewOrderPaymentRequest {
+  order_no: string
+  decision: 'approve' | 'reject' // approve=确认放行；reject=驳回
+  operation_reason: string // 必填，裁决依据
+  evidence?: string // 可选：链上交易哈希等支付证据（crypto 订单建议必填）
+}
+export interface ReviewOrderPaymentResponse {
+  success: boolean
+  status: string // 裁决后的订单业务状态（paid 或 closed）
+}
+
 // ---- 集中映射 ----
 export interface AdminContract {
   ListUsers: { req: ListUsersRequest; res: ListUsersResponse }
@@ -602,6 +621,7 @@ export interface AdminContract {
   ListOrders: { req: AdminListOrdersRequest; res: AdminListOrdersResponse }
   GetOrderDetail: { req: AdminGetOrderDetailRequest; res: AdminGetOrderDetailResponse }
   RetryOrderFulfillment: { req: AdminRetryOrderFulfillmentRequest; res: AdminRetryOrderFulfillmentResponse }
+  ReviewOrderPayment: { req: ReviewOrderPaymentRequest; res: ReviewOrderPaymentResponse }
 }
 
 export type AdminMethod = keyof AdminContract

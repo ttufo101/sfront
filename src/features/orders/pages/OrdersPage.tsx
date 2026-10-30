@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useXrpcQuery, useXrpcMutation } from '@/lib/xrpc/hooks'
@@ -6,6 +6,7 @@ import {
   type AdminListOrdersRequest,
   type AdminOrderItem,
   type AdminGetOrderDetailResponse,
+  type ReviewOrderPaymentRequest,
 } from '@/lib/xrpc/admin-contract'
 import { PageHeader, StateBlock } from '@/components/common/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -131,6 +132,34 @@ export function OrdersPage() {
   const query = useXrpcQuery('ListOrders', params, [params])
   const detailMut = useXrpcMutation('GetOrderDetail')
   const retryMut = useXrpcMutation('RetryOrderFulfillment')
+  // 人工裁决（确认放行 / 驳回）：仅对 payment_status=manual_review 的订单可用，为最终结论。
+  const reviewMut = useXrpcMutation('ReviewOrderPayment')
+  const [reviewReason, setReviewReason] = useState('')
+  const [reviewEvidence, setReviewEvidence] = useState('')
+  // 二次确认弹窗状态：open 控制显隐，decision 记录待执行的裁决方向。
+  const [confirm, setConfirm] = useState<{ open: boolean; decision: 'approve' | 'reject' }>({ open: false, decision: 'approve' })
+
+  // 侧边栏「订单管理」(/orders) 与「人工审核」(/orders?payment_status=manual_review) 指向同一组件实例，
+  // React Router 仅在 query 变化时不会重挂载，useState 初始化只执行一次，导致切换时 filter/params 不更新、列表不刷新。
+  // 这里监听 URL 的 payment_status，变化时把预置筛选同步进状态并重新拉取，保证「切换即刷新」。
+  // 跳过首次挂载：首屏已由 useState 初值正确处理，避免重复请求。
+  const urlPaymentStatus = searchParams.get('payment_status') ?? ''
+  const firstRun = useRef(true)
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false
+      return
+    }
+    setFilter({ ...emptyFilter(), payment_status: urlPaymentStatus })
+    setParams({
+      page: 1,
+      page_size: PAGE_SIZE,
+      ...(urlPaymentStatus ? { payment_status: urlPaymentStatus } : {}),
+    })
+    // 切换视图时关闭可能打开的详情，避免残留上一条订单的数据。
+    setDetail(null)
+    setDetailOpen(false)
+  }, [urlPaymentStatus])
 
   const buildParams = (f: FilterForm, page: number): AdminListOrdersRequest => {
     const p: AdminListOrdersRequest = { page, page_size: PAGE_SIZE }
@@ -192,6 +221,39 @@ export function OrdersPage() {
     }
   }
 
+  // 仅当详情中支付会话状态为 manual_review（枚举值 6）时才展示裁决入口。
+  const isManualReview = detail ? paymentStatusName(detail.payment?.payment?.status) === 'manual_review' : false
+  const isCrypto = !!detail?.payment?.payment?.crypto_transfer
+
+  // 打开二次确认弹窗，记录本次裁决方向（approve=确认放行 / reject=驳回）。
+  const openConfirm = (decision: 'approve' | 'reject') => setConfirm({ open: true, decision })
+
+  // 执行人工裁决：原因必填；链上支付确认放行时强制填写交易哈希证据；
+  // 调用 ReviewOrderPayment 后刷新详情与列表（订单自动退出 manual_review 队列）。
+  const doReview = async () => {
+    if (!detail) return
+    if (!reviewReason.trim()) return toast.error('请填写裁决依据')
+    if (confirm.decision === 'approve' && isCrypto && !reviewEvidence.trim())
+      return toast.error('链上支付确认放行需填写交易哈希证据')
+    try {
+      const r = await reviewMut.mutateAsync({
+        order_no: detail.order.order_no,
+        decision: confirm.decision,
+        operation_reason: reviewReason,
+        evidence: reviewEvidence.trim() || undefined,
+      } as ReviewOrderPaymentRequest)
+      toast.success(`已${confirm.decision === 'approve' ? '确认放行' : '驳回'}，当前状态：${r.status}`)
+      const r2 = await detailMut.mutateAsync({ order_no: detail.order.order_no })
+      setDetail(r2)
+      setReviewReason('')
+      setReviewEvidence('')
+      setConfirm({ open: false, decision: 'approve' })
+      query.refetch()
+    } catch (e) {
+      toast.error((e as Error).message)
+    }
+  }
+
   const total = Number(query.data?.total ?? 0)
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const curPage = Number(params.page ?? 1)
@@ -200,14 +262,15 @@ export function OrdersPage() {
   return (
     <div>
       <PageHeader
-        title="订单管理"
-        description="查询用户支付订单与人工订单，查看支付明细与事件，并对允许状态的订单重试权益发放"
+        title={urlPaymentStatus === 'manual_review' ? '人工审核' : '订单管理'}
+        description={urlPaymentStatus === 'manual_review' ? '支付状态为「人工审核」的订单：核对支付明细后确认放行或驳回，裁决为最终结论' : '查询用户支付订单与人工订单，查看支付明细与事件，并对允许状态的订单重试权益发放'}
       />
 
       {filter.payment_status === 'manual_review' && (
         <div className="mb-4 rounded-lg border border-warning/40 bg-warning/5 p-3 text-xs text-muted-foreground">
-          人工审核：下列订单的<b>支付状态为「人工审核」</b>（支付渠道未能自动确认成功/失败）。请打开详情核对支付明细、渠道交易号与事件后再行处理；若支付被对账确认为已支付，订单将转为
-          <b>已支付</b>，届时可用「重试发放」交付权益。本系统<b>不提供无付款依据的手工确认已付款</b>。
+          人工审核：下列订单的<b>支付状态为「人工审核」</b>（支付渠道未能自动确认成功/失败）。请打开详情核对支付明细、渠道交易号与链上交易 ID 后再行裁决。
+          <b>确认放行</b>将把订单标记为已支付并触发权益发放（系统每 5 秒自动发放，或可用「重试发放」）；
+          <b>驳回</b>将关闭订单且不发放。人工裁决为最终结论，请据实操作并填写依据。
         </div>
       )}
 
@@ -466,6 +529,41 @@ export function OrdersPage() {
                 </div>
               </section>
 
+              {/* 人工裁决：仅 manual_review 状态可裁决（最终结论，替代自动对账） */}
+              {isManualReview && (
+                <section>
+                  <h3 className="mb-2 font-semibold">人工裁决</h3>
+                  <div className="space-y-3 rounded-lg border border-primary/30 p-3">
+                    <Textarea
+                      placeholder="请填写裁决依据（必填）"
+                      value={reviewReason}
+                      onChange={(e) => setReviewReason(e.target.value)}
+                    />
+                    {isCrypto && (
+                      <div className="space-y-2">
+                        <Label>链上交易哈希（确认放行时必填，作为支付证据）</Label>
+                        <Input
+                          placeholder="0x… 或 tron / 链上 tx id"
+                          value={reviewEvidence}
+                          onChange={(e) => setReviewEvidence(e.target.value)}
+                        />
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Button onClick={() => openConfirm('approve')} disabled={reviewMut.loading}>
+                        确认放行
+                      </Button>
+                      <Button variant="destructive" onClick={() => openConfirm('reject')} disabled={reviewMut.loading}>
+                        驳回
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      确认放行 = 标记已支付并触发权益发放；驳回 = 关闭订单且不发放。裁决为最终结论。
+                    </p>
+                  </div>
+                </section>
+              )}
+
               {/* 支付事件时间线 */}
               <section>
                 <h3 className="mb-2 font-semibold">支付 / 补偿事件</h3>
@@ -518,6 +616,32 @@ export function OrdersPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailOpen(false)}>
               关闭
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 二次确认：高风险操作前的最后一道核对 */}
+      <Dialog open={confirm.open} onOpenChange={(o) => setConfirm({ ...confirm, open: o })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{confirm.decision === 'approve' ? '确认放行该订单？' : '驳回该订单？'}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {confirm.decision === 'approve'
+              ? '将把订单标记为「已支付」并触发权益发放（系统每 5 秒自动发放，或可用「重试发放」）。请确认已核对支付明细 / 链上交易号。'
+              : '将关闭订单且不发放权益。注意：若为链上转账，资金不可退回，需线下补偿。请确认实际未到账。'}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirm({ ...confirm, open: false })}>
+              取消
+            </Button>
+            <Button
+              variant={confirm.decision === 'approve' ? 'default' : 'destructive'}
+              onClick={doReview}
+              disabled={reviewMut.loading}
+            >
+              确定
             </Button>
           </DialogFooter>
         </DialogContent>

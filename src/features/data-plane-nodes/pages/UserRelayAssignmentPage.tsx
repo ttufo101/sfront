@@ -64,10 +64,9 @@ function nodeUsable(n: DataPlaneNode): boolean {
   return n.enabled && n.runtime_status === 'online' && n.scheduling_status === 'active' && host !== '' && fresh
 }
 
-export function UserRelayAssignmentPage() {
-  const { uid = '' } = useParams()
-  const navigate = useNavigate()
-
+// 可嵌入的「用户中转节点分配」面板：接受 uid 与可选的 onBack，便于在用户详情中直接内嵌。
+// 路由页 UserRelayAssignmentPage 仅做参数读取与返回按钮的薄包装。
+export function UserRelayAssignmentPanel({ uid, onBack }: { uid: string; onBack?: () => void }) {
   const [nodes, setNodes] = useState<DataPlaneNode[]>([])
   const [assigned, setAssigned] = useState<{ node_id: string; allow_fallback: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -160,9 +159,11 @@ export function UserRelayAssignmentPage() {
         title="中转节点分配"
         description={`为用户 ${uid} 配置固定中转节点。自动分配按 HRW 在健康节点中选择；固定节点优先使用，不可用时按「允许回退」决定行为。`}
         actions={
-          <Button variant="outline" onClick={() => navigate('/users')}>
-            返回用户列表
-          </Button>
+          onBack ? (
+            <Button variant="outline" onClick={onBack}>
+              返回用户列表
+            </Button>
+          ) : undefined
         }
       />
 
@@ -287,4 +288,11 @@ export function UserRelayAssignmentPage() {
       </Dialog>
     </div>
   )
+}
+
+// 路由薄包装：从 URL 读取 uid，渲染可嵌入面板并附带返回按钮（保留旧深链 /users/relay/:uid 可用）。
+export function UserRelayAssignmentPage() {
+  const { uid = '' } = useParams()
+  const navigate = useNavigate()
+  return <UserRelayAssignmentPanel uid={uid} onBack={() => navigate('/users')} />
 }

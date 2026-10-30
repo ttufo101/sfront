@@ -3,10 +3,7 @@ import { AdminLayout } from '@/app/layouts/AdminLayout'
 import { RequireAuth } from '@/features/auth/RequireAuth'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { UsersPage } from '@/features/users/pages/UsersPage'
-import { DevicesPage } from '@/features/users/pages/DevicesPage'
-import { UserSubscriptionsPage } from '@/features/users/pages/UserSubscriptionsPage'
 import { PlansPage } from '@/features/plans/pages/PlansPage'
-import { SubscriptionsPage } from '@/features/subscriptions/pages/SubscriptionsPage'
 import { ProxyConfigPage } from '@/features/proxy-config/pages/ProxyConfigPage'
 import { AnnouncementsPage } from '@/features/announcements/pages/AnnouncementsPage'
 import { ReleasesPage } from '@/features/releases/pages/ReleasesPage'
@@ -30,10 +27,7 @@ export default function App() {
       >
         <Route path="/" element={<Navigate to="/users" replace />} />
         <Route path="/users" element={<UsersPage />} />
-        <Route path="/users/:email/devices" element={<DevicesPage />} />
-        <Route path="/users/:email/subscriptions" element={<UserSubscriptionsPage />} />
         <Route path="/plans" element={<PlansPage />} />
-        <Route path="/subscriptions" element={<SubscriptionsPage />} />
         <Route path="/proxy" element={<ProxyConfigPage />} />
         <Route path="/releases" element={<ReleasesPage />} />
         <Route path="/releases/new" element={<ReleaseUploadPage />} />
