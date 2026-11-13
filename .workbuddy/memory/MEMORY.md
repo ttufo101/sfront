@@ -35,6 +35,11 @@
 - dev：vite proxy 把 `/startlandapi`→VITE_API_BASE、`/api/v1`→VITE_FILE_API_BASE(106.52.77.108:80)，规避 CORS。
 - 部署目标目录 = develop-tg:`/opt/starland-admin-web`（**非** `/usr/local/openresty/nginx/html`）；`cd dist && scp -r . develop-tg:/opt/starland-admin-web/ && ssh develop-tg "openresty -s reload"`。
 
+## 部署策略（[2026-11-06] 用户明确）
+- **当前为测试开发阶段**：部署时**不做旧版本兼容**、也**不需要备份旧版本**（远端 `/opt/admin/admin.bak-*`、前端旧包等都可忽略，不必再生成备份）。
+- 含义：改动可激进、可破坏性；不保留回滚档；不必为"历史已禁用版本/旧协议字段"等遗留做兼容处理。
+- 落地示例：发布流程已去掉 `expected_release_id` 乐观锁（单人场景无并发价值），未保留 Disable 锁的兼容分支。
+
 ## 后端服务拓扑（排障）
 - 两台机：47.120.10.73(develop-hy) 网关+微服务+MySQL(starlandbd:3136)；106.52.77.108(develop-tg) 文件服务(:80,openresty 前置)+MinIO。
 - admin 仅内网：网关 `starland.admin.com→127.0.0.1:8050`；对外 `0.0.0.0:12001` 收 `/startlandapi`。feedback=8060/login=8010/starcore=8030/order=8040/vfcode=8020/uidflake=7010 同机 gRPC。

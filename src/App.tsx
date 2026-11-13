@@ -10,6 +10,7 @@ import { ReleasesPage } from '@/features/releases/pages/ReleasesPage'
 import { ReleaseUploadPage } from '@/features/releases/pages/ReleaseUploadPage'
 import { FeedbackPage } from '@/features/feedback/pages/FeedbackPage'
 import { SharedPlanBenefitsPage } from '@/features/shared-plan-benefits/pages/SharedPlanBenefitsPage'
+import { RecommendedAndroidPackagesPage } from '@/features/recommended-android-packages/pages/RecommendedAndroidPackagesPage'
 import { DataPlaneNodesPage } from '@/features/data-plane-nodes/pages/DataPlaneNodesPage'
 import { UserRelayAssignmentPage } from '@/features/data-plane-nodes/pages/UserRelayAssignmentPage'
 import { OrdersPage } from '@/features/orders/pages/OrdersPage'
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/data-plane-nodes" element={<DataPlaneNodesPage />} />
         <Route path="/users/relay/:uid" element={<UserRelayAssignmentPage />} />
         <Route path="/shared-plan-benefits" element={<SharedPlanBenefitsPage />} />
+        <Route path="/recommended-android-packages" element={<RecommendedAndroidPackagesPage />} />
         <Route path="/orders" element={<OrdersPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

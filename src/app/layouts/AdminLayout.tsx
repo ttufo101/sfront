@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { LogOut, Users, Package, Network, Megaphone, Server, UploadCloud, MessageSquare, Globe, ServerCog, Receipt, UserCheck } from 'lucide-react'
+import { LogOut, Users, Package, Network, Megaphone, Server, UploadCloud, MessageSquare, Globe, ServerCog, Receipt, UserCheck, Smartphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ const NAV = [
   { to: '/feedback', label: '用户反馈', icon: MessageSquare },
   { to: '/announcements', label: '公告管理', icon: Megaphone },
   { to: '/shared-plan-benefits', label: '共享权益', icon: Globe },
+  { to: '/recommended-android-packages', label: 'VPN 排除应用', icon: Smartphone },
 ]
 
 export function AdminLayout() {

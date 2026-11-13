@@ -22,8 +22,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { computeSha256, uuidV4 } from '@/lib/upload/sha256'
-import { FileUploadError, uploadAppRelease } from '@/lib/upload/fileApi'
-import { publishAppVersion, listAppVersions } from '@/features/releases/api/releases'
+import { AppReleaseUploadResult, FileUploadError, uploadAppRelease } from '@/lib/upload/fileApi'
+import { publishAppVersion } from '@/features/releases/api/releases'
 import { XrpcError } from '@/lib/xrpc/types'
 import { formatBytes } from '@/lib/format'
 
@@ -62,7 +62,11 @@ export function ReleaseUploadPage() {
   const [updateDescription, setUpdateDescription] = useState('')
 
   const [progress, setProgress] = useState<number | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  // 安装包是否已成功上传到文件服务：一旦上传完成，上传按钮即置灰，防止重复上传/重复发布。
+  const [uploaded, setUploaded] = useState(false)
+  const [uploadResult, setUploadResult] = useState<AppReleaseUploadResult | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [publishing, setPublishing] = useState(false)
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -78,6 +82,9 @@ export function ReleaseUploadPage() {
     setSha256(hash)
     setIdempotencyKey(uuidV4())
     setProgress(null)
+    // 重新选择文件：清空上一次的上传结果，使上传按钮恢复可用。
+    setUploaded(false)
+    setUploadResult(null)
   }
 
   const onPlatformChange = (p: string) => {
@@ -90,10 +97,14 @@ export function ReleaseUploadPage() {
       setSha256('')
       setIdempotencyKey('')
     }
+    // 平台变化会影响包类型，已上传的安装包不再适用，重置上传态。
+    setUploaded(false)
+    setUploadResult(null)
+    setProgress(null)
   }
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // 步骤一：仅上传安装包到文件服务。上传成功后即置灰上传按钮，避免重复上传/重复发布。
+  const onUpload = async () => {
     if (!file) {
       toast.error('请先选择安装包文件')
       return
@@ -103,50 +114,23 @@ export function ReleaseUploadPage() {
       toast.error('安装包扩展名与所选平台不匹配')
       return
     }
-    if (!/^\d+\.\d+\.\d+$/.test(latestVersion.trim())) {
-      toast.error('版本号格式应为 major.minor.patch，例如 1.2.3')
-      return
-    }
-    const bn = Number(buildNumber)
-    if (!Number.isInteger(bn) || bn <= 0) {
-      toast.error('构建号必须为正整数')
-      return
-    }
-    setSubmitting(true)
+    setUploading(true)
     setProgress(0)
     try {
-      // 乐观锁：admin 要求 expected_release_id 与该平台当前生效版本一致，否则 409。
-      // 首发该平台时无生效版本，留空即可。
-      const current = await listAppVersions({ platform, include_history: false })
-      const expectedReleaseId =
-        current.releases.find((r) => r.status === 'active')?.release_id ?? ''
-
+      // 文件服务按 idempotencyKey 去重：同一文件重复点击上传不会生成重复对象。
       const upload = await uploadAppRelease(file, {
         platform,
         packageType: actualPackageType,
         idempotencyKey,
         onProgress: setProgress,
       })
-      const res = await publishAppVersion({
-        file_id: upload.file_id,
-        platform,
-        latest_version: latestVersion.trim(),
-        build_number: String(bn),
-        minimum_version: minimumVersion.trim(),
-        update_title: updateTitle.trim(),
-        update_description: updateDescription.trim(),
-        client_request_id: uuidV4(),
-        expected_release_id: expectedReleaseId,
-        // 文件服务不再回查，以下元信息须由前端从上传结果转发给 admin。
-        // 注意：文件服务实际响应不含 package_type，须用实际文件扩展名推导。
-        file_name: upload.filename,
-        package_size_bytes: String(upload.size),
-        package_sha256: upload.sha256,
-        package_type: actualPackageType,
-      })
-      toast.success(`已发布 ${res.release.latest_version}（${res.release.platform}）`)
-      navigate('/releases')
+      setUploadResult(upload)
+      setUploaded(true)
+      toast.success('安装包上传完成，可点击下方「发布版本」')
     } catch (err) {
+      // 上传失败：保持未上传态，允许重试。
+      setUploaded(false)
+      setUploadResult(null)
       if (err instanceof FileUploadError) {
         // 联调诊断：把 HTTP 状态码 / 请求 URL / 后端原始响应全打到 toast，便于贴给后端
         const parts: string[] = [`code=${err.code}`]
@@ -168,13 +152,63 @@ export function ReleaseUploadPage() {
         if (raw) parts.push(`响应: ${raw.length > 240 ? raw.slice(0, 240) + '…' : raw}`)
         if (err.requestId) parts.push(`reqId: ${err.requestId}`)
         toast.error(`上传失败：${err.message}`, { description: parts.join('  ·  ') })
-      } else if (err instanceof XrpcError) {
+      } else {
+        toast.error('上传失败，请重试')
+      }
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  // 步骤二：登记并发布已上传的安装包。仅当上传完成后可用。
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!uploadResult) {
+      toast.error('请先上传安装包')
+      return
+    }
+    const actualPackageType = getPackageType(uploadResult.filename)
+    if (!/^\d+\.\d+\.\d+$/.test(latestVersion.trim())) {
+      toast.error('版本号格式应为 major.minor.patch，例如 1.2.3')
+      return
+    }
+    const bn = Number(buildNumber)
+    if (!Number.isInteger(bn) || bn <= 0) {
+      toast.error('构建号必须为正整数')
+      return
+    }
+    setPublishing(true)
+    try {
+      // 单人发布场景：后端 PublishAppRelease 已移除 expected_release_id 乐观锁校验，
+      // 不再需要发布前预取"当前版本"；仅由 client_request_id 幂等 + 构建号/版本兜底保证安全。
+
+      const res = await publishAppVersion({
+        file_id: uploadResult.file_id,
+        platform,
+        latest_version: latestVersion.trim(),
+        build_number: String(bn),
+        minimum_version: minimumVersion.trim(),
+        update_title: updateTitle.trim(),
+        update_description: updateDescription.trim(),
+        client_request_id: uuidV4(),
+        expected_release_id: '', // 后端已移除发布乐观锁校验，该字段不再参与判定，传空即可
+        // 文件服务不再回查，以下元信息须由前端从上传结果转发给 admin。
+        // 注意：文件服务实际响应不含 package_type，须用实际文件扩展名推导。
+        file_name: uploadResult.filename,
+        package_size_bytes: String(uploadResult.size),
+        package_sha256: uploadResult.sha256,
+        package_type: actualPackageType,
+      })
+      toast.success(`已发布 ${res.release.latest_version}（${res.release.platform}）`)
+      navigate('/releases')
+    } catch (err) {
+      if (err instanceof XrpcError) {
         toast.error(`发布失败：${err.message}`)
       } else {
         toast.error('操作失败，请重试')
       }
     } finally {
-      setSubmitting(false)
+      setPublishing(false)
     }
   }
 
@@ -198,7 +232,7 @@ export function ReleaseUploadPage() {
           <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>平台 / 包类型</Label>
-            <Select value={platform} onValueChange={onPlatformChange} disabled={submitting}>
+            <Select value={platform} onValueChange={onPlatformChange} disabled={uploading || publishing}>
               <SelectTrigger>
                 <SelectValue placeholder="选择平台" />
               </SelectTrigger>
@@ -213,7 +247,19 @@ export function ReleaseUploadPage() {
 
           <div className="space-y-2">
             <Label htmlFor="release-file">安装包文件（{fileLabel}）</Label>
-            <Input id="release-file" type="file" accept={fileAccept} onChange={onFileChange} disabled={submitting} />
+            <div className="flex items-center gap-3">
+              <Input id="release-file" type="file" accept={fileAccept} onChange={onFileChange} disabled={uploading || publishing} className="flex-1" />
+              {/* 上传按钮：安装包一旦上传成功即置灰（uploaded=true），防止重复上传/重复发布；
+                  上传中或发布登记中同样禁用。 */}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onUpload}
+                disabled={!file || uploading || uploaded || publishing}
+              >
+                {uploading ? '上传中…' : uploaded ? '已上传' : '上传安装包'}
+              </Button>
+            </div>
             {file && (
               <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
                 <div>文件名：{file.name}</div>
@@ -227,7 +273,7 @@ export function ReleaseUploadPage() {
                 <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
               </div>
             )}
-            {progress === 100 && <div className="text-xs text-success">上传完成</div>}
+            {uploaded && <div className="text-xs text-success">上传完成</div>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -238,7 +284,7 @@ export function ReleaseUploadPage() {
                 placeholder="1.2.3"
                 value={latestVersion}
                 onChange={(e) => setLatestVersion(e.target.value)}
-                disabled={submitting}
+                disabled={publishing}
               />
             </div>
             <div className="space-y-2">
@@ -250,7 +296,7 @@ export function ReleaseUploadPage() {
                 placeholder="1042"
                 value={buildNumber}
                 onChange={(e) => setBuildNumber(e.target.value)}
-                disabled={submitting}
+                disabled={publishing}
               />
             </div>
           </div>
@@ -262,7 +308,7 @@ export function ReleaseUploadPage() {
               placeholder="1.0.0"
               value={minimumVersion}
               onChange={(e) => setMinimumVersion(e.target.value)}
-              disabled={submitting}
+                disabled={publishing}
             />
           </div>
 
@@ -273,7 +319,7 @@ export function ReleaseUploadPage() {
               placeholder="例如：稳定性与性能优化"
               value={updateTitle}
               onChange={(e) => setUpdateTitle(e.target.value)}
-              disabled={submitting}
+                disabled={publishing}
             />
           </div>
 
@@ -284,13 +330,13 @@ export function ReleaseUploadPage() {
               placeholder="本次更新的主要内容…"
               value={updateDescription}
               onChange={(e) => setUpdateDescription(e.target.value)}
-              disabled={submitting}
+              disabled={publishing}
               rows={4}
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={submitting || !file}>
-            {submitting ? '上传并发布中…' : '上传并发布'}
+          <Button type="submit" className="w-full" disabled={!uploaded || publishing || uploading}>
+            {publishing ? '发布中…' : '发布版本'}
           </Button>
           </form>
         </CardContent>

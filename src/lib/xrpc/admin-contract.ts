@@ -157,6 +157,22 @@ export interface UpdateProxyConfigResponse {
   revision: string | number // uint64 十进制字符串（更新后的新修订号）
 }
 
+// ---- Android 应用访问控制（VPN 排除）推荐包名配置 ----
+// 管理端读写 Admin.GetRecommendedAndroidPackagesConfig / UpdateRecommendedAndroidPackagesConfig；
+// 客户端读接口为 starland.starcore.com/GetRecommendedAndroidPackages（认证接口，仅下发 packages，不在本后台调用）。
+// 两端共用同一份 DB 配置表；管理端整体替换，测试阶段单人管理，不做乐观锁。
+// 包名规则与后端一致：^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$，trim、去重、保序、≤255 字符、≤100 条。
+export interface GetRecommendedAndroidPackagesConfigRequest {}
+export interface GetRecommendedAndroidPackagesConfigResponse {
+  packages: string[]
+}
+export interface UpdateRecommendedAndroidPackagesConfigRequest {
+  packages: string[] // 整体替换；前端先做校验，后端再兜底
+}
+export interface UpdateRecommendedAndroidPackagesConfigResponse {
+  success: boolean
+}
+
 // ---- 数据面中转节点管理（Admin.ListDataPlaneNodes / CreateDataPlaneNode / UpdateDataPlaneNode / RotateDataPlaneNodePassword）----
 // 对齐 admin.proto（t_dataplane_node）：明文密码（node_password）只在创建/轮换响应返回一次，DB 仅存 bcrypt 哈希。
 // 时间字段标了 [jstype=JS_NUMBER]，按惯例用 string|number 兼容网关下行。
@@ -327,7 +343,7 @@ export interface PublishAppVersionRequest {
   update_title: string
   update_description: string
   client_request_id: string // 调用方生成 UUID，幂等发布
-  expected_release_id: string // 当前发布 ID；首发留空，防并发覆盖
+  expected_release_id: string // 已弃用：Publish 已移除乐观锁校验，传空即可（保留字段兼容；Disable 仍必填）
   // 以下 4 字段来自文件服务上传接口返回；admin 不回查文件服务，必须由前端转发
   file_name: string // 上传接口返回的原始文件名
   package_size_bytes: string // uint64 十进制字符串，上传接口返回的安装包大小
@@ -598,6 +614,8 @@ export interface AdminContract {
   GetUserSubscriptions: { req: GetUserSubscriptionsRequest; res: GetUserSubscriptionsResponse }
   GetProxyConfig: { req: GetProxyConfigRequest; res: GetProxyConfigResponse }
   UpdateProxyConfig: { req: UpdateProxyConfigRequest; res: UpdateProxyConfigResponse }
+  GetRecommendedAndroidPackagesConfig: { req: GetRecommendedAndroidPackagesConfigRequest; res: GetRecommendedAndroidPackagesConfigResponse }
+  UpdateRecommendedAndroidPackagesConfig: { req: UpdateRecommendedAndroidPackagesConfigRequest; res: UpdateRecommendedAndroidPackagesConfigResponse }
   ListDataPlaneNodes: { req: ListDataPlaneNodesRequest; res: ListDataPlaneNodesResponse }
   CreateDataPlaneNode: { req: CreateDataPlaneNodeRequest; res: CreateDataPlaneNodeResponse }
   UpdateDataPlaneNode: { req: UpdateDataPlaneNodeRequest; res: UpdateDataPlaneNodeResponse }
