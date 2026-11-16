@@ -126,6 +126,96 @@ export async function fetchFeedbackImageBlob(fileId: string): Promise<string> {
   return URL.createObjectURL(blob)
 }
 
+/** 发布中心制品/统一配置模板上传（/api/v1/deployer-artifacts，独立前缀 + 服务令牌鉴权下载）。 */
+export interface DeployerArtifactUploadResult {
+  file_id: string
+  file_kind: string
+  filename: string
+  size: number
+  sha256: string
+  created_at: string
+  request_id: string
+}
+
+/** binary = 用户直传的可执行程序；archive 仅用于兼容历史版本制品；config = 统一配置模板。 */
+export type DeployerArtifactKind = 'binary' | 'archive' | 'config'
+
+/** 与文件服务 validateFileType 的扩展名白名单保持一致。 */
+const ARCHIVE_EXTS = ['.zip', '.tar.gz', '.tgz', '.gz']  // 仅用于兼容历史版本制品
+const CONFIG_EXTS = ['.yaml', '.yml', '.conf', '.json', '.toml', '.ini', '.cfg', '.txt', '.env']
+
+export function validateDeployerArtifactName(name: string, kind: DeployerArtifactKind): string | null {
+  // 可执行程序常无扩展名，前端不做后缀限制；文件服务按 ELF magic (\x7fELF) 权威校验。
+  if (kind === 'binary') return null
+  const lower = name.toLowerCase()
+  const exts = kind === 'archive' ? ARCHIVE_EXTS : CONFIG_EXTS
+  if (!exts.some((e) => lower.endsWith(e))) {
+    return kind === 'archive'
+      ? '历史制品包只支持 .zip / .tar.gz / .tgz / .gz'
+      : '配置模板只支持 .yaml / .yml / .conf / .json / .toml / .ini / .cfg / .txt / .env'
+  }
+  return null
+}
+
+export function deployerArtifactAccept(kind: DeployerArtifactKind): string {
+  // 空串 = 文件选择器不限制扩展名，由服务端 ELF magic 判定。
+  if (kind === 'binary') return ''
+  return (kind === 'archive' ? ARCHIVE_EXTS : CONFIG_EXTS).join(',')
+}
+
+/**
+ * 上传可执行程序或统一配置模板到文件服务。
+ * 与客户端安装包不同：不传 platform / package_type，对象落在 deployer-artifacts/ 前缀，
+ * 匿名下载被拒，只有携带 X-Service-Token 的 deployer 能取回。
+ */
+export async function uploadDeployerArtifact(
+  file: File,
+  kind: DeployerArtifactKind,
+  opts: { idempotencyKey: string; onProgress?: (percent: number) => void; signal?: AbortSignal },
+): Promise<DeployerArtifactUploadResult> {
+  const bad = validateDeployerArtifactName(file.name, kind)
+  if (bad) throw new FileUploadError('INVALID_FILE_TYPE', bad)
+  const url = resolveFileUrl('/api/v1/deployer-artifacts')
+  const sha256 = await computeSha256(file)
+  const token = await getValidAccessToken()
+  const tokenDiag = token
+    ? { userId: getAccessTokenUserId(token), expireAt: getAccessTokenExpireAt(token) }
+    : null
+
+  return new Promise<DeployerArtifactUploadResult>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url, true)
+    xhr.setRequestHeader('Idempotency-Key', opts.idempotencyKey)
+    xhr.setRequestHeader('X-File-Size', String(file.size))
+    xhr.setRequestHeader('X-File-SHA256', sha256)
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && opts.onProgress) {
+        opts.onProgress(Math.round((e.loaded / e.total) * 100))
+      }
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as DeployerArtifactUploadResult)
+        } catch {
+          reject(new FileUploadError('INVALID_RESPONSE', '响应解析失败', undefined, {
+            status: xhr.status, responseText: xhr.responseText, url,
+          }))
+        }
+        return
+      }
+      reject(parseError(xhr, url, tokenDiag))
+    }
+    xhr.onerror = () => reject(new FileUploadError('NETWORK_ERROR', '网络错误，上传失败', undefined, { url }))
+    xhr.onabort = () => reject(new FileUploadError('ABORTED', '上传已取消', undefined, { url }))
+    if (opts.signal) opts.signal.addEventListener('abort', () => xhr.abort(), { once: true })
+    const form = new FormData()
+    form.append('file', file)
+    xhr.send(form)
+  })
+}
+
 export async function uploadAppRelease(
   file: File,
   opts: UploadAppReleaseOptions,

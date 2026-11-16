@@ -313,19 +313,30 @@ audit.go
 
 ### 12.1 信息架构
 
-保留“数据面节点管理”页面，并在用户详情页增加“中转节点分配”区域：
+统一「节点管理」（/nodes?tab=relay|outlets|assets|history），四个 tab 复用既有页面；用户详情页仍保留“中转节点分配”区域：
 
 ```text
-数据面节点管理
-  ├─ 节点列表
-  ├─ 新增节点
-  ├─ 编辑节点
-  └─ 轮换节点密码
+节点管理 /nodes
+  ├─ 中转接入：节点列表 / 新增 / 编辑 / 轮换密码 / 下架接入
+  ├─ 落地出口：出口归属绑定 / 按机器上下架
+  ├─ 服务器台账：公钥纳管 / 批量运维 / 删除已下架服务器（二次确认）
+  ├─ 历史服务器：已删除服务器只读留档（不可恢复）
+  └─ 用户详情：中转节点分配（自动 / 固定 / 允许回退）
 
-用户详情
-  └─ 中转节点分配
-       ├─ 自动分配
-       └─ 固定节点 + 故障时是否允许回退
+下架（业务动作，不是单一字段）
+  ├─ 中转：scheduling_status=isolated，不再被选为接入 IP
+  └─ 落地：SetNodeListing 按 node_id 级联 delisted
+
+删除（下架之后的第二步，不可恢复）
+  ├─ 闸门：落地 listing_status=delisted / 中转 isolated 且无严格固定用户（否则回 blocked_uids）
+  └─ DeleteNodeAsset 单事务：t_node_asset 软删 deleted_at + 硬删 t_dataplane_node /
+     t_proxy_outlet / t_user_relay_assignment；deployer.ListNodeAssets 默认过滤 deleted_at，
+     include_deleted=true 供历史页查询
+
+GetLinks 出口裁剪：以 t_proxy_outlet 的 listing_status=listed 为白名单，
+  ├─ 只下发白名单内的出口，同步清理 proxy-groups[].proxies 中的引用
+  ├─ 已下架 / 随服务器删除被硬删 / 未登记归属的出口都不会「复活」
+  └─ 剩余 0 个返回 503 no available proxy outlet
 ```
 
 节点列表使用 `Admin.ListDataPlaneNodes`；创建、编辑和轮换分别调用 `CreateDataPlaneNode`、`UpdateDataPlaneNode`、`RotateDataPlaneNodePassword`。用户详情通过 `GetUserRelayAssignment` 读取，通过 `SetUserRelayAssignment` 保存或清除固定关系。
@@ -358,10 +369,10 @@ audit.go
 - `runtime_status=online`：Mihomo 生命周期心跳正常。
 - `runtime_status=offline`：Mihomo 主动离开或心跳超时。
 - `runtime_status=unknown`：节点创建后从未成功上线。
-- `scheduling_status=active`：允许进入新的 `GetLinks` 分配。
-- `draining`：不再分配新用户，已有客户端配置不被服务端主动断开。
-- `isolated`：管理员明确隔离，不参与自动和固定节点选择。
-- `disabled`：不参与调度，通常用于尚未完成部署的节点。
+- `scheduling_status=active`：已上架接入，允许进入新的 `GetLinks` 分配。
+- `isolated`：运维人工「下架接入」，不再被选为接入 IP；若存在严格固定用户（`allow_fallback=0`），服务端返回 `blocked_uids` 并阻断，需先迁移。
+- `disabled`：未部署完成，不参与调度。
+- 故障（`runtime_status` 与心跳）与人工上下架是两个独立维度：故障节点仍展示，只是不参与选路；只有人工下架才让客户端列表不再出现。
 
 “可分配”是组合结果，不单独保存：节点必须启用、运行在线、调度状态为 `active`、心跳有效且 `advertise_host` 非空。前端可以显示一个只读的“当前可分配/不可分配”提示，但不能让这个派生标签代替原始状态字段。
 
@@ -434,7 +445,7 @@ audit.go
 2. 心跳更新时列表静默刷新，弹窗和用户输入不受影响。
 3. 公网地址为空时不能把节点切换为 `active`。
 4. 新建和轮换密码只展示一次，刷新页面后无法再次获取明文。
-5. 停用、隔离和轮换均有明确影响提示及二次确认。
+5. 下架接入、停用节点身份和轮换密码均有明确影响提示及二次确认；阻断时给出严格固定用户列表与迁移入口。
 6. 用户可选择自动、严格固定、固定且允许回退三种策略。
 7. 已固定但离线或隔离的节点仍能在用户详情中识别和修改。
 8. 清除固定关系后，下一次 `GetLinks` 恢复 HRW 自动分配。

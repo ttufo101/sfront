@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>发布中心 · 交互原型（定稿 v2）</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:#F3F5F8;color:#1F2329;font-size:13px;line-height:1.6}
+button,input,select,textarea{font-family:inherit;font-size:13px}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:224px;flex:0 0 224px;background:#fff;border-right:1px solid #E7E9ED;display:flex;flex-direction:column}
+.brand{height:56px;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid #E7E9ED}
+.brand-mark{width:26px;height:26px;border-radius:6px;background:#0052D9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.nav-group{padding:14px 18px 4px;color:#8A9099;font-size:11px;letter-spacing:.4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 12px;margin:2px 8px;border-radius:6px;color:#4B5563;cursor:pointer;user-select:none}
+.nav-item:hover{background:#F3F5F8}
+.nav-item.active{background:#ECF2FE;color:#0052D9;font-weight:500}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{height:56px;background:#fff;border-bottom:1px solid #E7E9ED;display:flex;align-items:center;padding:0 24px;gap:12px}
+.content{padding:20px 24px 48px;flex:1;min-width:0}
+.page-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.page-title{font-size:18px;font-weight:600;margin:0 0 2px}
+.subtitle{color:#8A9099;font-size:12px}
+.hint{color:#8A9099;font-size:12px}
+.mono{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:12px}
+.card{background:#fff;border:1px solid #E7E9ED;border-radius:8px}
+.card-head{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #E7E9ED}
+.card-head .grow{flex:1}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.stat{background:#fff;border:1px solid #E7E9ED;border-radius:8px;padding:14px 16px}
+.stat .label{color:#8A9099;font-size:12px}
+.stat .value{font-size:24px;font-weight:600;line-height:1.35;margin-top:2px}
+.stat .foot{color:#8A9099;font-size:12px}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-weight:500;color:#8A9099;font-size:12px;background:#FAFBFC;padding:10px 14px;border-bottom:1px solid #E7E9ED;white-space:nowrap}
+.tbl td{padding:11px 14px;border-bottom:1px solid #F0F1F3;vertical-align:middle}
+.tbl tbody tr:hover td{background:#FAFBFC}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border:1px solid #DCDFE6;border-radius:6px;background:#fff;color:#1F2329;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:#0052D9;color:#0052D9}
+.btn.primary{background:#0052D9;border-color:#0052D9;color:#fff}
+.btn.primary:hover{background:#0045B5;color:#fff}
+.btn.sm{height:26px;padding:0 9px;font-size:12px}
+.btn.danger{color:#E34D59;border-color:#F0C2C4}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.badge{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:4px;font-size:12px;background:#F3F5F8;color:#4B5563;white-space:nowrap}
+.badge.blue{background:#ECF2FE;color:#0052D9}
+.badge.green{background:#E8F8F2;color:#008858}
+.badge.orange{background:#FFF3E8;color:#C25E10}
+.badge.red{background:#FDECEE;color:#C9353F}
+.badge.gray{background:#F3F5F8;color:#8A9099}
+.tabs{display:flex;gap:24px;border-bottom:1px solid #E7E9ED;margin-top:16px}
+.tab{padding:10px 2px 12px;cursor:pointer;color:#4B5563;border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none}
+.tab.active{color:#0052D9;border-bottom-color:#0052D9;font-weight:500}
+.meta-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 20px}
+.meta-label{color:#8A9099;font-size:12px}
+.meta-value{margin-top:2px;word-break:break-all}
+.note{background:#F6F9FF;border:1px dashed #BBD3FB;border-radius:6px;padding:10px 12px;color:#3A5A95;font-size:12px}
+.note.warn{background:#FFF8F0;border-color:#F3C99C;color:#A35A12}
+.note.plain{background:#FAFBFC;border-color:#E7E9ED;color:#4B5563}
+.note.ok{background:#E8F8F2;border-color:#B7E5D1;color:#00704A}
+.annot{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#FFF3E8;color:#C25E10;font-size:11px;cursor:pointer;margin-left:5px;vertical-align:middle;border:1px solid #F5D3B3;line-height:1}
+.mask{position:fixed;inset:0;background:rgba(15,23,42,.42);display:flex;align-items:center;justify-content:center;padding:24px;z-index:50}
+.modal{background:#fff;border-radius:10px;width:100%;max-width:660px;max-height:88vh;display:flex;flex-direction:column}
+.modal.wide{max-width:880px}
+.modal-head{padding:15px 20px;border-bottom:1px solid #E7E9ED;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.modal-title{font-weight:500;font-size:15px}
+.modal-body{padding:20px;overflow:auto;flex:1}
+.modal-foot{padding:13px 20px;border-top:1px solid #E7E9ED;display:flex;justify-content:flex-end;gap:8px;align-items:center}
+.modal-foot .grow{flex:1}
+.field{margin-bottom:14px}
+.field label{display:block;margin-bottom:6px;color:#4B5563;font-size:12px}
+.input,.select,.textarea{width:100%;height:34px;border:1px solid #DCDFE6;border-radius:6px;padding:0 10px;background:#fff;color:#1F2329;outline:none}
+.textarea{height:auto;min-height:64px;padding:8px 10px;resize:vertical}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.steps{display:flex;margin-bottom:18px}
+.step{flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #E7E9ED;border-right:none;background:#FAFBFC;font-size:12px;color:#8A9099}
+.step:first-child{border-radius:6px 0 0 6px}
+.step:last-child{border-right:1px solid #E7E9ED;border-radius:0 6px 6px 0}
+.step.active{background:#ECF2FE;color:#0052D9;border-color:#BBD3FB;font-weight:500}
+.step.done{background:#E8F8F2;color:#008858;border-color:#B7E5D1}
+.step-num{width:18px;height:18px;border-radius:50%;background:#fff;border:1px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:11px;flex:0 0 18px}
+.code{background:#F7F8FA;border:1px solid #E7E9ED;border-radius:6px;padding:14px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.75;white-space:pre-wrap;color:#2C3340;margin:0}
+.progress{height:6px;background:#EFF1F4;border-radius:3px;overflow:hidden;min-width:90px}
+.progress > div{height:100%;background:#0052D9}
+.progress.fail > div{background:#E34D59}
+.drawer-mask{position:fixed;inset:0;background:rgba(15,23,42,.28);z-index:60}
+.drawer{position:fixed;right:0;top:0;bottom:0;width:440px;max-width:92vw;background:#fff;border-left:1px solid #E7E9ED;z-index:61;display:flex;flex-direction:column}
+.drawer-head{padding:16px 20px;border-bottom:1px solid #E7E9ED;display:flex;align-items:center;justify-content:space-between}
+.drawer-body{padding:16px 20px;overflow:auto;flex:1}
+.qcard{border:1px solid #E7E9ED;border-radius:8px;padding:12px 14px;margin-bottom:12px}
+.qcard.focus{border-color:#0052D9;background:#F7FAFF}
+.qcard .qtitle{font-weight:500;margin-bottom:6px}
+.qcard .qbody{color:#4B5563;font-size:12px}
+.qcard .qrec{background:#E8F8F2;color:#00704A;border-radius:4px;padding:6px 9px;margin-top:8px;font-size:12px}
+#toast-root{position:fixed;right:24px;bottom:24px;z-index:80;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:#1F2329;color:#fff;padding:9px 14px;border-radius:6px;font-size:12px}
+.flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.flow .node{background:#fff;border:1px solid #E7E9ED;border-radius:6px;padding:6px 12px;font-size:12px;color:#4B5563}
+.flow .node.hi{background:#ECF2FE;border-color:#BBD3FB;color:#0052D9;font-weight:500}
+.flow .sep{color:#A6ABB3}
+.chk{width:15px;height:15px;accent-color:#0052D9;cursor:pointer}
+</style>
+</head>
+<body>
+<div style="position:sticky;top:0;z-index:90;background:#FFF4E5;border-bottom:1px solid #F0C36D;color:#8A4B00;padding:9px 18px;font:12px/1.6 -apple-system,'Segoe UI',sans-serif">⚠️ 历史交互原型，已归档（2026-11-15）。当前设计以 <strong>release-center.md §13</strong> 为准：身份由纳管写入 /etc/starland/node-identity、应用自读；用户直传可执行程序；生命周期统一 script:/opt/&lt;app&gt;/setup.sh。下方「身份初始化 / 前置探测 / 模板合成 / 压缩包制品」均为已作废交互桩。</div>
+<div id="app"></div>
+<div id="modal-root"></div>
+<div id="drawer-root"></div>
+<div id="toast-root"></div>
+<script>
+/* 发布中心交互原型 · 历史归档（2026-11-15）
+   ⚠️ 本文件自 §13 统一化改造起不再作为设计事实源，仅供历史交互参考。
+   当前唯一有效方案：release-center.md §13；实现：src/features/apps + deployer-contract.ts。
+   下方仍保留旧的「identity 前置探测 / 初始化按钮 / 模板合成 / systemd 枚举 / 压缩包制品」
+   交互桩，这些在 §13 中已全部作废，请勿据此理解现状：
+
+   §13 要点：① 用户直传可执行程序（ELF），不打包不解压；② 节点身份由纳管流程
+   写入 /etc/starland/node-identity（0600），mihomo 启动时自读、缺失拒绝启动；
+   ③ 发布中心只写纯业务模板 + mv -f 替换二进制，不签发/不探测/不合成/不覆盖身份；
+   ④ 路径与命令由后端按 service_type 推导，生命周期只留 script:/opt/<app>/setup.sh；
+   ⑤ install / upgrade / rollback 完全同一路径，无 first_install、无 service_type 分流。
+   已删除的更早作废设计：按节点渲染占位符、批次回滚、失败自动回滚、
+   台账推导回滚目标、逐台不同目标版本、failed 状态门禁、control/web 类型。 */
+var TYPES={relay:'中转',landing:'落地'};
+var TYPE_BADGE={relay:'blue',landing:'green'};
+var ITEM_STATUS={pending:['待执行','gray'],running:['执行中','blue'],succeeded:['成功','green'],failed:['失败','red'],skipped:['无需变更','gray']};
+var MODE_LABEL={install:['部署','blue'],upgrade:['升级','green'],rollback:['回滚','orange']};
+var BATCH_STATUS={running:['进行中','blue'],succeeded:['已完成','green'],failed:['失败','red']};
+
+var nodes=[
+  {id:'relay-47-120-10-73-01',ip:'47.120.10.73',name:'develop-hy',type:'relay',identity:true,note:'网关 + 控制面 + deployer'},
+  {id:'relay-106-52-77-108-01',ip:'106.52.77.108',name:'develop-tg',type:'relay',identity:true,note:'openresty + 文件服务 + MinIO'},
+  {id:'landing-45-32-20-165',ip:'45.32.20.165',name:'落地机 A',type:'landing',identity:true,note:'Hysteria2 :26019-26024'},
+  {id:'landing-47-251-121-91',ip:'47.251.121.91',name:'落地机 B',type:'landing',identity:false,note:'未初始化节点身份，部署会被前置拒绝'},
+  {id:'landing-139-180-130-194',ip:'139.180.130.194',name:'已删除落地机',type:'landing',identity:false,deleted:true,note:'deleted_at 非空，不可选'},
+  {id:'landing-78-141-208-60',ip:'78.141.208.60',name:'已删除落地机',type:'landing',identity:false,deleted:true,note:'deleted_at 非空，不可选'}
+];
+
+var apps=[
+  {id:'mihomo-relay',key:'mihomo-relay',name:'Mihomo 中转',type:'relay',configName:'config.yaml',configPath:'/opt/mihomo/conf/config.yaml',binPath:'/opt/mihomo/mihomo',lifecycle:'script:/opt/mihomo/setup.sh',health:'script:/opt/mihomo/setup.sh',identityPath:'/etc/starland/node-identity',stable:'v4',last:'2026-11-14 15:02',note:'纯业务模板原文写入；身份由应用自读本机文件，发布中心不合成'},
+  {id:'hysteria2-landing',key:'hysteria2-landing',name:'Hysteria2 落地',type:'landing',configName:'config.yaml',configPath:'/opt/hysteria/conf/config.yaml',binPath:'/opt/hysteria/hysteria',lifecycle:'script:/opt/hysteria/setup.sh',health:'script:/opt/hysteria/setup.sh',identityPath:'/etc/starland/node-identity',stable:'v3',last:'2026-11-14 09:41',note:'直传 ELF 原子替换二进制；纯业务模板原文写入，无身份分支'}
+];
+
+/* 本机身份文件跨应用统一，由纳管流程写入、应用自读；发布中心不提交、不探测该路径。 */
+var IDENTITY_BY_TYPE={relay:'/etc/starland/node-identity',landing:'/etc/starland/node-identity'};
+/* 历史交互桩：保留仅为旧演示逻辑，§13 下发布中心不再有 needsIdentity 分流。 */
+function needsIdentity(t){ return t==='relay'; }
+
+var versions={
+  'mihomo-relay':[
+    {no:4,time:'2026-11-14 15:02',by:'admin',bin:'mihomo-linux-amd64.tgz',size:'8.2 MB',sha:'a3f1c07d…9c2e',config:'mihomo-config-v4.yaml',note:'新增 hy2 landing 端口范围'},
+    {no:3,time:'2026-11-13 09:41',by:'admin',bin:'mihomo-linux-amd64.tgz',size:'8.1 MB',sha:'7bd2e941…41af',config:'mihomo-config-v3.yaml',note:'调整 urltest interval'},
+    {no:2,time:'2026-11-12 18:20',by:'admin',bin:'mihomo-linux-amd64.tgz',size:'8.0 MB',sha:'c41a9d55…0be7',config:'mihomo-config-v2.yaml',note:'首次纳入发布中心'},
+    {no:1,time:'2026-11-11 10:05',by:'admin',bin:'mihomo-linux-amd64.tgz',size:'7.9 MB',sha:'f0e318ac…7d12',config:'mihomo-config-v1.yaml',note:'基线版本'}
+  ],
+  'hysteria2-landing':[
+    {no:3,time:'2026-11-14 09:41',by:'admin',bin:'hysteria-linux-amd64.tgz',size:'12.5 MB',sha:'e77c1b02…3ad9',config:'hysteria-v3.yaml',note:'调整 masquerade 参数'},
+    {no:2,time:'2026-11-13 09:41',by:'admin',bin:'hysteria-linux-amd64.tgz',size:'12.4 MB',sha:'5a83cc10…e904',config:'hysteria-v2.yaml',note:'listen 改为 :26019-26024'},
+    {no:1,time:'2026-11-11 10:05',by:'admin',bin:'hysteria-linux-amd64.tgz',size:'12.3 MB',sha:'d91b0e77…3c85',config:'hysteria-v1.yaml',note:'基线版本'}
+  ]
+};
+
+/* 部署台账：current=实况版本，lastSuccess=上次成功版本，status=failed 时如实记录实况 */
+var deployments={
+  'mihomo-relay':[
+    {nodeId:'relay-47-120-10-73-01',version:'v3',lastSuccess:'v3',status:'healthy',time:'2026-11-13 10:12'},
+    {nodeId:'relay-106-52-77-108-01',version:'v3',lastSuccess:'v3',status:'healthy',time:'2026-11-13 10:14'}
+  ],
+  'hysteria2-landing':[
+    {nodeId:'landing-45-32-20-165',version:'v2',lastSuccess:'v2',status:'healthy',time:'2026-11-13 09:52'},
+    {nodeId:'landing-47-251-121-91',version:'v3',lastSuccess:'v2',status:'failed',time:'2026-11-14 09:56'}
+  ]
+};
+
+var tasks=[
+  {id:'B-20261114-003',appId:'mihomo-relay',target:'v4',mode:'upgrade',by:'admin',start:'15:40:02',end:'',concurrency:'1',status:'running',items:[
+    {nodeId:'relay-47-120-10-73-01',from:'v3',to:'v4',status:'succeeded',ticks:2,logs:['[15:40:02] 任务入队，获取节点串行锁','[15:40:05] 从 MinIO 拉取 ELF 制品并校验 sha256','[15:40:09] 纯业务模板原文写入 conf/config.yaml','[15:40:12] setup.sh restart（常驻 unit）','[15:40:15] setup.sh status 健康检查通过']},
+    {nodeId:'relay-106-52-77-108-01',from:'v3',to:'v4',status:'running',ticks:0,logs:['[15:41:01] 等待前一台节点完成（并发上限 1）']}
+  ]},
+  {id:'B-20261114-002',appId:'mihomo-relay',target:'v3',mode:'upgrade',by:'admin',start:'09:48:11',end:'09:56:40',concurrency:'2',status:'succeeded',items:[
+    {nodeId:'relay-47-120-10-73-01',from:'v2',to:'v3',status:'succeeded',ticks:2,logs:['[09:48:11] sha256 校验通过','[09:50:02] 健康检查通过']},
+    {nodeId:'relay-106-52-77-108-01',from:'v2',to:'v3',status:'succeeded',ticks:2,logs:['[09:51:20] sha256 校验通过','[09:53:44] 健康检查通过']}
+  ]},
+  {id:'B-20261114-001',appId:'hysteria2-landing',target:'v3',mode:'upgrade',by:'admin',start:'09:48:04',end:'09:56:22',concurrency:'1',status:'failed',items:[
+    {nodeId:'landing-47-251-121-91',from:'v2',to:'v3',status:'failed',ticks:2,reason:'健康检查未通过：systemctl is-active 返回非 0',logs:['[09:48:04] 制品替换完成','[09:52:50] 服务已重启','[09:56:22] 健康检查失败；台账如实记 current=v3 / status=failed，lastSuccess 保持 v2；不做自动回滚']}
+  ]},
+  {id:'B-20261112-000',appId:'mihomo-relay',target:'v2',mode:'rollback',by:'admin',start:'18:35:10',end:'18:37:02',concurrency:'1',status:'succeeded',items:[
+    {nodeId:'relay-47-120-10-73-01',from:'v3',to:'v2',status:'succeeded',ticks:2,logs:['[18:35:10] 人工统一指定目标版本 v2','[18:36:22] 下发历史制品并校验 sha256','[18:37:02] 健康检查通过，不产生新版本']},
+    {nodeId:'relay-106-52-77-108-01',from:'v3',to:'v2',status:'succeeded',ticks:2,logs:['[18:36:10] 人工统一指定目标版本 v2','[18:37:02] 健康检查通过']}
+  ]}
+];
+
+/* 已定案设计依据（替代上一版的「待确认点」） */
+var DECISIONS=[
+  {n:1,group:'配置',title:'统一配置模板 + 中继 identity 段',body:'版本只存一份统一业务配置，不含 node-id / node-password / gateway-url。Mihomo 中继部署时把本机 0600 identity 文件原样追加；Hysteria2 落地机不消费 starland-dataplane 段，统一模板原文写入、不需要 InitNodeIdentity。install / upgrade / rollback 走同一执行路径，代码无 first_install 分支。',rec:'定案：不做按节点渲染占位符；identity 不进版本、不进 DB；落地机不进中转注册表。'},
+  {n:2,group:'配置',title:'三入口汇聚一个动作',body:'部署从版本行选节点，升级/回滚从已部署节点 tab 选版本；后端只有 StartDeploy(mode, appId, targetVersion, nodeIds[])。版本列表不放升级按钮。',rec:'定案：mode = install / upgrade / rollback；只入库立即返回 batch_id，前端轮询。'},
+  {n:3,group:'交互',title:'选择只发生一次，次级页面只读快照',body:'列表页勾选是唯一事实源；向导渲染不可变快照，无 checkbox、不能新增节点。部署弹窗是唯一例外（无上游列表）。',rec:'定案：升级/回滚向导均 2 步；要改范围必须返回列表页。'},
+  {n:4,group:'回滚',title:'独立 mode + 人工统一指定一个目标版本',body:'回滚不叫「升级到旧版本」，不产生新版本；目标由人工在必选下拉里指定，不由台账推导、不逐台覆盖；取消批次回滚与失败自动回滚。',rec:'定案：唯一入口＝已部署节点 tab；目标 > 任一节点当前版本硬阻断整批，等于则跳过，跨版本软警告。'},
+  {n:5,group:'失败',title:'不自动回滚，台账如实记实况',body:'健康检查失败时制品已替换并重启，不能假装还在旧版。台账记 current=目标版本 / status=failed / lastSuccess 不变，界面显示「实况 v3（异常）· 上次成功 v2」。',rec:'定案：人工重试或前往已部署节点回滚；不做 failed 状态门禁。'},
+  {n:6,group:'制品',title:'独立前缀 deployer-artifacts/ + MinIO',body:'服务端制品与客户端安装包分离，不开放匿名 GetObject；deployer 走 X-Service-Token 鉴权下载，file_id + sha256 固化不可覆盖。',rec:'定案：MinIO 为事实源，/opt/deployer/artifacts/ 仅作下载缓存；不做整包备份。'},
+  {n:7,group:'身份',title:'一次性初始化做成独立按钮',body:'密码属于节点纳管：deployer 内存生成 → 明文经 SSH 写目标机 0600 identity 文件 + bcrypt hash 直写同一库 → 审计只记 node_id，前端不回显。',rec:'定案：显式确认 dataplane_node_id，不静默假设与台账 node_id 对齐；手工纳管保留兜底；轮换后续迭代。'},
+  {n:8,group:'边界',title:'漂移轻量提示 / service_type 范围',body:'提交带 snapshot[{nodeId,currentVersion}]，后端比对台账，不一致返回 drifted_nodes，人工确认后二次提交，不强锁。P0 service_type 仅 relay / landing。',rec:'定案：不做强乐观锁；节点来源 relay→t_dataplane_node，landing→t_node_asset；排除已软删节点。'}
+];
+
+var seq=4;
+var state={
+  view:'apps',appId:'mihomo-relay',tab:'versions',modal:null,
+  drawer:false,drawerFocus:0,selected:new Set(),filter:'all',
+  configMode:'template',configNode:'relay-47-120-10-73-01',showSecret:false,taskFilter:'all'
+};
+
+function nowTime(){ return new Date().toLocaleTimeString('zh-CN',{hour12:false}); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function appById(id){ for(var i=0;i<apps.length;i++){ if(apps[i].id===id) return apps[i]; } return apps[0]; }
+function nodeById(id){ for(var i=0;i<nodes.length;i++){ if(nodes[i].id===id) return nodes[i]; } return {id:id,ip:id,name:'未知节点',type:'relay',note:'',identity:false}; }
+function taskById(id){ for(var i=0;i<tasks.length;i++){ if(tasks[i].id===id) return tasks[i]; } return tasks[0]; }
+function vs(appId){ return versions[appId]||[]; }
+function ds(appId){ return deployments[appId]||[]; }
+function dep(appId,nodeId){ var d=ds(appId); for(var i=0;i<d.length;i++){ if(d[i].nodeId===nodeId) return d[i]; } return null; }
+function maxNo(appId){ var m=0,a=vs(appId); for(var i=0;i<a.length;i++){ if(a[i].no>m) m=a[i].no; } return m; }
+function verNo(v){ var n=parseInt(String(v||'').replace(/^v/,''),10); return isNaN(n)?0:n; }
+function deployedCount(appId,label){ var d=ds(appId),c=0; for(var i=0;i<d.length;i++){ if(d[i].version===label) c++; } return c; }
+function A(n){ return '<span class="annot" data-action="open-discussion" data-q="'+n+'" title="设计依据 D'+n+'">'+n+'</span>'; }
+function badge(t,tone){ return '<span class="badge '+(tone||'')+'">'+esc(t)+'</span>'; }
+function toast(msg){ var root=document.getElementById('toast-root'); var d=document.createElement('div'); d.className='toast'; d.textContent=msg; root.appendChild(d); setTimeout(function(){ d.remove(); },2600); }
+function meta(l,v){ return '<div><div class="meta-label">'+esc(l)+'</div><div class="meta-value mono">'+esc(v)+'</div></div>'; }
+function fld(l,c,h){ return '<div class="field"><label>'+l+'</label>'+c+(h?'<div class="hint">'+h+'</div>':'')+'</div>'; }
+function stat(l,v,f){ return '<div class="stat"><div class="label">'+l+'</div><div class="value">'+v+'</div><div class="foot">'+f+'</div></div>'; }
+function cancelBtn(){ return '<button class="btn" data-action="close-modal">取消</button>'; }
+
+/* ---------- 布局 ---------- */
+function sidebar(){
+  var item=function(a,label,active){ return '<div class="nav-item '+(active?'active':'')+'" data-action="'+a+'">'+label+'</div>'; };
+  return '<div class="sidebar"><div class="brand"><div class="brand-mark">RC</div><div><div style="font-weight:600">发布中心</div><div class="hint" style="font-size:11px">Release Center · 定稿 v2</div></div></div>'+
+    '<div class="nav-group">发布管理</div>'+
+    item('nav-apps','应用定义',state.view==='apps'||state.view==='appDetail')+
+    item('nav-tasks','发布任务',state.view==='tasks')+
+    '<div class="nav-group">前置</div>'+
+    item('nav-nodes','服务器台账 · 身份初始化',state.view==='nodes')+
+    '<div class="nav-group">说明</div>'+
+    item('open-discussion','设计依据 '+DECISIONS.length+' 条',false)+
+    '<div style="flex:1"></div>'+
+    '<div style="padding:14px 18px;border-top:1px solid #E7E9ED" class="hint">单机模拟原型<br>无后端 / 无真实 SSH</div></div>';
+}
+function topbar(){
+  var crumb=state.view==='appDetail'?('应用定义 / '+appById(state.appId).name):(state.view==='tasks'?'发布任务':(state.view==='nodes'?'服务器台账':'应用定义'));
+  return '<div class="topbar"><div style="font-weight:500">'+esc(crumb)+'</div><div style="flex:1"></div>'+
+    '<span class="hint">事实源：release-center.md</span>'+badge('P0','blue')+'</div>';
+}
+function flowStrip(){
+  return '<div class="flow"><span class="node">应用定义</span><span class="sep">→</span><span class="node">版本（制品 + 统一模板）</span><span class="sep">→</span>'+
+    '<span class="node hi">StartDeploy</span><span class="sep">→</span><span class="node">异步 worker</span><span class="sep">→</span><span class="node">部署台账</span></div>';
+}
+function render(){
+  var h='<div class="layout">'+sidebar()+'<div class="main">'+topbar()+'<div class="content">';
+  if(state.view==='apps') h+=appsPage();
+  else if(state.view==='appDetail') h+=appDetailPage();
+  else if(state.view==='tasks') h+=tasksPage();
+  else if(state.view==='nodes') h+=nodesPage();
+  h+='</div></div></div>';
+  document.getElementById('app').innerHTML=h;
+}
+
+/* ---------- 应用列表 / 详情 ---------- */
+function appsPage(){
+  var rows='';
+  for(var i=0;i<apps.length;i++){
+    var a=apps[i],n=vs(a.id).length,d=ds(a.id).length;
+    rows+='<tr><td><span class="link" data-action="open-app" data-app="'+a.id+'">'+esc(a.name)+'</span><div class="hint mono">'+esc(a.key)+'</div></td>'+
+      '<td>'+badge(TYPES[a.type],TYPE_BADGE[a.type])+'</td><td>'+n+'</td><td>'+d+'</td>'+
+      '<td>'+badge(a.stable,'green')+'</td><td class="mono">'+esc(a.last)+'</td>'+
+      '<td><button class="btn sm" data-action="open-app" data-app="'+a.id+'">进入</button></td></tr>';
+  }
+  return '<div class="page-head"><div><h1 class="page-title">应用定义</h1><div class="subtitle">P0 仅中转 / 落地两类；服务类型决定可选节点与启停方式 '+A(8)+'</div></div>'+
+    '<div style="flex:1"></div><button class="btn primary" data-action="new-app">新建应用</button></div>'+
+    flowStrip()+
+    '<div class="stats">'+stat('应用数',apps.length,'P0 两类')+stat('版本总数',vs('mihomo-relay').length+vs('hysteria2-landing').length,'创建后不可变')+stat('已部署节点',ds('mihomo-relay').length+ds('hysteria2-landing').length,'台账唯一事实源')+stat('进行中批次',tasks.filter(function(t){return t.status==='running';}).length,'前端轮询')+'</div>'+
+    '<div class="card"><div class="card-head"><div class="grow" style="font-weight:500">应用列表</div><span class="hint">命令类字段全部枚举，禁止自由文本</span></div>'+
+    '<table class="tbl"><thead><tr><th>应用</th><th>服务类型</th><th>版本数</th><th>已部署节点</th><th>最新稳定版</th><th>最近发布</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<div class="note" style="margin-top:14px">三套「版本」必须分开：本页是服务端应用版本；客户端安装包在 /releases；控制面脚本在 ops/deploy-one.sh。控制面 / 前端类型后续迭代，P0 不建 '+A(8)+'</div>';
+}
+function appDetailPage(){
+  var a=appById(state.appId),tabs=[['versions','版本列表'],['deployments','已部署节点'],['tasks','发布任务'],['settings','应用设置']];
+  var th='';
+  for(var i=0;i<tabs.length;i++){ th+='<div class="tab '+(state.tab===tabs[i][0]?'active':'')+'" data-action="tab" data-tab="'+tabs[i][0]+'">'+tabs[i][1]+'</div>'; }
+  var body=state.tab==='versions'?versionsTab(a):state.tab==='deployments'?deploymentsTab(a):state.tab==='tasks'?appTasksTab(a):settingsTab(a);
+  return '<div class="page-head"><div><h1 class="page-title">'+esc(a.name)+' '+A(2)+'</h1><div class="subtitle mono">'+esc(a.key)+' · '+TYPES[a.type]+' · '+esc(a.configPath)+'</div></div>'+
+    '<div style="flex:1"></div><button class="btn" data-action="nav-apps">返回应用列表</button></div>'+
+    '<div class="card" style="padding:14px 16px"><div class="meta-grid">'+meta('制品目标路径',a.binPath)+meta('配置目标路径',a.configPath)+meta('启停方式',a.lifecycle)+meta('健康检查',a.health)+'</div></div>'+
+    '<div class="tabs">'+th+'</div><div style="margin-top:16px">'+body+'</div>';
+}
+
+/* ---------- 版本列表 ---------- */
+function versionsTab(a){
+  var rows='',v=vs(a.id);
+  for(var i=0;i<v.length;i++){
+    var x=v[i],lb='v'+x.no;
+    rows+='<tr><td>'+badge(lb,'blue')+(a.stable===lb?' '+badge('稳定版','green'):'')+'</td><td class="mono">'+esc(x.time)+'<div class="hint">'+esc(x.by)+'</div></td>'+
+      '<td><div class="mono">'+esc(x.bin)+'</div><div class="hint mono">'+esc(x.size)+' · '+esc(x.sha)+'</div></td>'+
+      '<td class="mono">'+esc(x.config)+'</td><td>'+deployedCount(a.id,lb)+'</td><td>'+esc(x.note)+'</td>'+
+      '<td><div class="row-actions"><button class="btn sm primary" data-action="open-deploy" data-ver="'+lb+'">部署</button>'+
+      '<button class="btn sm" data-action="view-config" data-ver="'+lb+'">查看配置</button>'+
+      '<button class="btn sm" data-action="view-artifact" data-ver="'+lb+'">制品</button></div></td></tr>';
+  }
+  return '<div class="card"><div class="card-head"><div class="grow" style="font-weight:500">版本列表</div>'+
+    '<button class="btn primary sm" data-action="new-version">新建版本</button></div>'+
+    '<table class="tbl"><thead><tr><th>版本</th><th>创建时间 / 人</th><th>制品（MinIO）</th><th>统一配置模板</th><th>已部署</th><th>变更说明</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<div class="note" style="margin-top:14px">版本列表<strong>只有「部署」「查看配置」「制品」</strong>，不放升级按钮，避免「点 v3 的升级是升到 v3 还是最新」的歧义 '+A(2)+'</div>'+
+    '<div class="note plain" style="margin-top:10px">回滚<strong>不产生新版本</strong>：只生成 mode=rollback 的任务批次，把节点切回人工指定的历史版本；版本号由「新建版本」独占递增 '+A(4)+'</div>'+
+    '<div class="note ok" style="margin-top:10px">制品存 MinIO 独立前缀 <span class="mono">deployer-artifacts/</span>，file_id + sha256 固化不可覆盖，不开放匿名 GetObject '+A(6)+'</div>';
+}
+
+/* ---------- 已部署节点（升级 / 回滚唯一入口） ---------- */
+function deploymentsTab(a){
+  var d=ds(a.id),rows='',sel=state.selected.size;
+  for(var i=0;i<d.length;i++){
+    var x=d[i],n=nodeById(x.nodeId),chk='<input class="chk" type="checkbox" data-action="toggle-row" data-node="'+x.nodeId+'" '+(state.selected.has(x.nodeId)?'checked':'')+'>';
+    var verCell=badge(x.version,x.status==='failed'?'red':'blue')+(x.status==='failed'?' <span class="hint">异常</span>':'');
+    rows+='<tr><td>'+chk+'</td><td class="mono">'+esc(n.ip)+'</td><td>'+esc(n.name)+'</td><td>'+badge(TYPES[n.type],TYPE_BADGE[n.type])+'</td>'+
+      '<td>'+verCell+'</td><td>'+badge(x.lastSuccess||'—','green')+'</td>'+
+      '<td>'+(x.status==='failed'?badge('实况 '+x.version+' · 上次成功 '+x.lastSuccess,'red'):badge('健康','green'))+'</td>'+
+      '<td class="mono">'+esc(x.time)+'</td>'+
+      '<td><div class="row-actions"><button class="btn sm" data-action="wizard-one" data-node="'+x.nodeId+'">升级</button>'+
+      '<button class="btn sm danger" data-action="rollback-one" data-node="'+x.nodeId+'">回滚</button>'+
+      '<button class="btn sm" data-action="node-log" data-node="'+x.nodeId+'">日志</button></div></td></tr>';
+  }
+  return '<div class="card"><div class="card-head"><div class="grow" style="font-weight:500">已部署节点 · 升级与回滚的唯一入口 '+A(4)+'</div>'+
+    '<span class="hint">已选 '+sel+' 台</span>'+
+    '<button class="btn sm" data-action="select-all">全选</button>'+
+    '<button class="btn primary sm" data-action="open-wizard" '+(sel?'':'disabled')+'>批量升级（'+sel+'）</button>'+
+    '<button class="btn danger sm" data-action="open-rollback" '+(sel?'':'disabled')+'>批量回滚（'+sel+'）'+A(4)+'</button></div>'+
+    '<table class="tbl"><thead><tr><th></th><th>服务器 IP</th><th>节点名称</th><th>类型</th><th>当前版本（实况）</th><th>上次成功</th><th>状态</th><th>最近部署</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<div class="note" style="margin-top:14px">只列<strong>装过该应用</strong>的节点（app × node 部署台账）；首次安装走版本列表的「部署」。勾选后进入两步向导，<strong>向导内不再提供勾选框</strong> '+A(3)+'</div>'+
+    '<div class="note warn" style="margin-top:10px">失败节点<strong>如实记录实况版本</strong>（制品已替换），不自动回滚、不做 failed 门禁；人工选择「重试」或在本页勾选后回滚 '+A(5)+'</div>';
+}
+
+/* ---------- 任务 ---------- */
+function modeBadge(m){ var x=MODE_LABEL[m]||['—','gray']; return badge(x[0],x[1]); }
+function taskRows(list){
+  var rows='';
+  for(var i=0;i<list.length;i++){
+    var t=list[i],done=0;
+    for(var j=0;j<t.items.length;j++){ if(t.items[j].status==='succeeded'||t.items[j].status==='failed') done++; }
+    rows+='<tr><td class="mono">'+esc(t.id)+'</td><td>'+esc(appById(t.appId).name)+'</td><td>'+modeBadge(t.mode)+'</td><td>'+badge(t.target,'blue')+'</td>'+
+      '<td>'+badge(BATCH_STATUS[t.status][0],BATCH_STATUS[t.status][1])+'</td>'+
+      '<td><div class="progress '+(t.status==='failed'?'fail':'')+'"><div style="width:'+Math.round(done*100/t.items.length)+'%"></div></div><div class="hint">'+done+' / '+t.items.length+'</div></td>'+
+      '<td class="mono">'+esc(t.by)+'<div class="hint">'+esc(t.start)+'</div></td>'+
+      '<td><button class="btn sm" data-action="open-task" data-task="'+t.id+'">查看明细</button></td></tr>';
+  }
+  return rows;
+}
+function taskTable(list){ return '<table class="tbl"><thead><tr><th>批次</th><th>应用</th><th>类型</th><th>目标版本</th><th>状态</th><th>进度</th><th>发起人 / 开始</th><th>操作</th></tr></thead><tbody>'+taskRows(list)+'</tbody></table>'; }
+function appTasksTab(a){ var list=tasks.filter(function(t){return t.appId===a.id;}); return '<div class="card"><div class="card-head"><div class="grow" style="font-weight:500">该应用的发布任务</div></div>'+taskTable(list)+'</div>'; }
+function tasksPage(){
+  var running=tasks.filter(function(t){return t.status==='running';}).length,failed=tasks.filter(function(t){return t.status==='failed';}).length,rbs=tasks.filter(function(t){return t.mode==='rollback';}).length;
+  var list=state.taskFilter==='all'?tasks:tasks.filter(function(t){return t.mode===state.taskFilter;});
+  return '<div class="page-head"><div><h1 class="page-title">发布任务</h1><div class="subtitle">异步批次，前端轮询到终态；任务类型可区分部署 / 升级 / 回滚 '+A(2)+'</div></div></div>'+
+    '<div class="stats">'+stat('总批次',tasks.length,'模拟数据')+stat('进行中',running,'轮询刷新')+stat('失败批次',failed,'人工重试 / 回滚')+stat('回滚批次',rbs,'mode=rollback')+'</div>'+
+    '<div class="card" style="margin-bottom:12px;padding:10px 14px;display:flex;align-items:center;gap:10px"><span class="hint">任务类型筛选</span>'+
+    '<select class="select" style="width:150px;height:28px" data-action="task-filter"><option value="all"'+(state.taskFilter==='all'?' selected':'')+'>全部</option>'+
+    '<option value="install"'+(state.taskFilter==='install'?' selected':'')+'>部署</option><option value="upgrade"'+(state.taskFilter==='upgrade'?' selected':'')+'>升级</option>'+
+    '<option value="rollback"'+(state.taskFilter==='rollback'?' selected':'')+'>回滚</option></select>'+
+    '<span class="hint">已取消「回滚此批次」：回滚统一从「已部署节点」tab 发起 '+A(4)+'</span></div>'+
+    '<div class="card">'+taskTable(list)+'</div>';
+}
+
+/* ---------- 应用设置 ---------- */
+function settingsTab(a){
+  return '<div class="card" style="padding:16px"><div style="font-weight:500;margin-bottom:12px">应用定义 '+A(1)+'</div>'+
+    '<div class="meta-grid">'+meta('应用 key',a.key)+meta('服务类型',TYPES[a.type])+meta('配置文件名',a.configName)+meta('配置目标路径',a.configPath)+
+    meta('可执行程序路径',a.binPath)+meta('重启方式',a.lifecycle)+meta('健康检查',a.health)+meta('本机身份文件（应用自读）',a.identityPath)+'</div>'+
+    '<div class="note" style="margin-top:14px">配置为<strong>统一模板</strong>，不含任何节点身份字段；'+
+    (needsIdentity(a.type)
+      ? '<span class="mono">'+esc(a.identityPath)+'</span>（0600）随机器永久保留，部署时统一模板 + 身份 3 行合成最终 config.yaml，升级 / 回滚永不覆盖身份 '
+      : '落地节点（Hysteria2）不需要 identity 文件，凭据在本机 <span class="mono">config.yaml</span>，统一模板原文写入、不追加 Mihomo 身份段 ')+
+    A(1)+A(7)+'</div>'+
+    '<div class="note plain" style="margin-top:10px">命令文本由后端白名单枚举映射生成，前端只提交枚举与有限参数，禁止自由文本与前端传路径；不做失败自动回滚，失败如实记录实况并交人工判断 '+A(5)+'</div></div>';
+}
+
+/* ---------- 服务器台账（前置：身份初始化） ---------- */
+function nodesPage(){
+  var rows='';
+  for(var i=0;i<nodes.length;i++){
+    var n=nodes[i];
+    rows+='<tr><td class="mono">'+esc(n.ip)+'</td><td>'+esc(n.name)+'</td><td>'+badge(TYPES[n.type],TYPE_BADGE[n.type])+'</td>'+
+      '<td>'+(n.identity?badge('已初始化','green'):badge('未初始化','orange'))+'</td>'+
+      '<td>'+(n.deleted?badge('已删除','gray'):badge('在架','blue'))+'</td><td class="hint">'+esc(n.note)+'</td>'+
+      '<td>'+(n.identity||n.deleted?'<span class="hint">—</span>':'<button class="btn sm primary" data-action="init-identity" data-node="'+n.id+'">初始化节点身份</button>')+'</td></tr>';
+  }
+  return '<div class="page-head"><div><h1 class="page-title">服务器台账 · 身份初始化</h1><div class="subtitle">仅 Mihomo 中继入网做一次，独立于发布中心；发布部署前探测 identity 文件，缺失即拒绝。落地节点凭据在本机 config.yaml，无需初始化 '+A(7)+'</div></div></div>'+
+    '<div class="note warn" style="margin-bottom:14px">密码<strong>不由发布中心生成、不回显给前端</strong>：deployer 内存生成随机密码 → 明文经 SSH 写目标机 0600 文件 → bcrypt hash 直写同一库；审计只记 node_id。手工纳管路径保留为应急兜底 '+A(7)+'</div>'+
+    '<div class="card"><div class="card-head"><div class="grow" style="font-weight:500">节点清单</div></div>'+
+    '<table class="tbl"><thead><tr><th>IP</th><th>名称</th><th>类型</th><th>节点身份</th><th>台账状态</th><th>备注</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<div class="note plain" style="margin-top:14px">自动/手动密码轮换 P0 不做；已初始化节点拒绝重复初始化；<strong>初始化必须显式确认 dataplane_node_id</strong>，不静默假设与台账 node_id 对齐 '+A(7)+'</div>';
+}
+
+/* ---------- 弹窗 ---------- */
+function renderModal(){
+  var root=document.getElementById('modal-root'),m=state.modal;
+  if(!m){ root.innerHTML=''; return; }
+  var wide=m.wide?' wide':'';
+  root.innerHTML='<div class="mask"><div class="modal'+wide+'"><div class="modal-head"><div class="modal-title">'+esc(m.title)+'</div>'+
+    '<button class="btn sm ghost" data-action="close-modal">✕</button></div>'+
+    '<div class="modal-body">'+modalBody(m)+'</div><div class="modal-foot">'+modalFoot(m)+'</div></div></div>';
+}
+function modalBody(m){
+  if(m.type==='newApp') return newAppForm();
+  if(m.type==='newVersion') return newVersionForm(m);
+  if(m.type==='config') return configView(m);
+  if(m.type==='artifact') return artifactView(m);
+  if(m.type==='deploy') return deployView(m);
+  if(m.type==='wizard') return wizardView(m);
+  if(m.type==='rollback') return rollbackView(m);
+  if(m.type==='task') return taskDetail(m);
+  if(m.type==='initIdentity') return initIdentityView(m);
+  if(m.type==='nodeLog') return m.logHtml||nodeLogView(m);
+  if(m.type==='drift') return driftView(m);
+  return '';
+}
+function modalFoot(m){
+  var cancel=cancelBtn();
+  if(m.type==='newApp') return cancel+'<button class="btn primary" data-action="submit-new-app">创建应用</button>';
+  if(m.type==='newVersion') return cancel+'<button class="btn primary" data-action="submit-new-version">创建版本</button>';
+  if(m.type==='deploy') return '<div class="grow hint">已选 '+m.selected.size+' 台 · '+A(3)+'</div>'+cancel+'<button class="btn primary" data-action="submit-deploy" '+(m.selected.size?'':'disabled')+'>提交部署</button>';
+  if(m.type==='wizard'||m.type==='rollback'){
+    var isLast=m.step===2;
+    var left=m.step>1?'<button class="btn" data-action="wizard-prev">上一步</button>':cancel;
+    var label=m.type==='rollback'?'提交回滚':'提交升级';
+    var act=m.type==='rollback'?'submit-rollback':'submit-wizard';
+    var disabled=(isLast&&!m.confirm)||(!isLast&&!m.target);
+    return '<div class="grow hint">第 '+m.step+' / 2 步 · 只读快照 '+m.nodes.length+' 台 '+A(3)+'</div>'+left+
+      (isLast?'<button class="btn primary" data-action="'+act+'" '+(disabled?'disabled':'')+'>'+label+'</button>':'<button class="btn primary" data-action="wizard-next" '+(m.target?'':'disabled')+'>下一步</button>');
+  }
+  if(m.type==='initIdentity') return cancel+'<button class="btn primary" data-action="submit-init-identity" '+(m.confirm?'':'disabled')+'>确认初始化</button>';
+  if(m.type==='drift') return cancelBtn()+'<button class="btn primary" data-action="drift-confirm">仍然提交</button>';
+  if(m.type==='task') return '<div class="grow hint">任务明细仅提供「重试」与「前往已部署节点回滚」 '+A(5)+'</div>'+cancel;
+  return cancel;
+}
+
+function newAppForm(){
+  var opts='<option value="relay">中转 relay</option><option value="landing">落地 landing</option>';
+  return '<div class="form-grid">'+
+    fld('应用 key（唯一）','<input class="input" id="f-key" placeholder="例如 mihomo-relay">')+
+    fld('显示名称','<input class="input" id="f-name" placeholder="例如 Mihomo 中转">')+
+    fld('服务类型 '+A(8),'<select class="select" id="f-type">'+opts+'</select>')+
+    fld('配置文件名','<input class="input" id="f-configname" value="config.yaml">')+
+    fld('配置目标路径（文件）','<input class="input" id="f-configpath" value="/opt/mihomo/conf/config.yaml">')+
+    fld('可执行程序路径','<input class="input" id="f-binpath" value="/opt/mihomo/mihomo">')+
+    fld('重启方式','<select class="select" id="f-life"><option>script:/opt/mihomo/setup.sh</option><option>script:/opt/hysteria/setup.sh</option></select>')+
+    fld('健康检查','<select class="select" id="f-health"><option>script:/opt/mihomo/setup.sh</option><option>script:/opt/hysteria/setup.sh</option></select>')+
+    '</div><div class="note">路径与命令全部由后端按 service_type 白名单推导，前端只提交 app_key / display_name / service_type 三项；生命周期统一为 <span class="mono">script:/opt/&lt;app&gt;/setup.sh</span>。身份文件 <span class="mono">/etc/starland/node-identity</span> 由纳管写入、应用自读，发布中心不提交也不探测 '+A(1)+A(8)+'</div>';
+}
+function newVersionForm(m){
+  var next='v'+(maxNo(m.appId)+1);
+  return '<div class="note ok" style="margin-bottom:14px">版本号由后端 <span class="mono">UNIQUE(app_id, version_no)</span> + 行锁自增，本次<strong>将创建 '+next+'</strong>；创建后制品与模板不可变 '+A(2)+'</div>'+
+    '<div class="form-grid">'+
+    fld('可执行程序（直接上传，无需打包）','<div class="input mono" style="display:flex;align-items:center;color:#8A9099">点击选择文件（模拟）· deployer-artifacts/'+next+'</div>','服务端按 ELF 文件头校验；返回 file_id / filename / size / sha256，存 MinIO '+A(6))+
+    fld('统一配置模板','<div class="input mono" style="display:flex;align-items:center;color:#8A9099">点击选择文件（模拟）· config-'+next+'.yaml</div>','零凭据纯业务模板，不含身份字段、不含按节点占位符 '+A(1))+
+    '</div>'+
+    fld('变更说明','<textarea class="textarea" id="f-note" placeholder="本次变更内容"></textarea>')+
+    '<div class="field"><label style="display:flex;align-items:center;gap:6px"><input class="chk" type="checkbox" id="f-stable" checked> 设为稳定版</label></div>'+
+    '<div class="note plain">回滚不产生新版本；版本号只由本入口递增 '+A(4)+'</div>';
+}
+function configText(mode,nodeId,showSecret){
+  var a=appById(state.appId),n=nodeById(nodeId);
+  var base='# 统一业务配置模板（版本内固化，不含节点身份）\n'+
+    'mixed-port: 7890\nlog-level: info\n'+
+    'proxy-groups:\n  - name: flback\n    type: fallback\n    url: http://www.gstatic.com/generate_204\n    interval: 86400\n'+
+    'proxies:  # 6 个 anytls 入口，server 由中转本机决定\n  - name: JP:japan\n    port: 26020\n';
+  if(mode==='template') return base;
+  if(!needsIdentity(a.type)) return base+'# 落地节点（Hysteria2）不消费 starland-dataplane，最终配置即模板原文\n';
+  var secret=showSecret?'<真实 node-password>':'••••••••（已脱敏）';
+  return base+'# 注：以下身份段不来自模板，部署时由 deployer 读取本机 identity 文件原样追加\n'+
+    '\n# ---- 由 '+a.identityPath+' 原样追加（每台唯一，永不覆盖）----\n'+
+    'starland-dataplane:\n  gateway-url: http://'+(n.ip==='47.120.10.73'?'127.0.0.1':'47.120.10.73')+':12001/startlandapi\n'+
+    '  node-id: '+n.id+'\n  node-password: '+secret+'\n';
+}
+function configView(m){
+  var n=nodeById(m.nodeId);
+  return '<div class="card" style="padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">'+
+    '<button class="btn sm '+(m.mode==='template'?'primary':'')+'" data-action="config-mode" data-mode="template">统一模板原文</button>'+
+    '<button class="btn sm '+(m.mode==='merged'?'primary':'')+'" data-action="config-mode" data-mode="merged">合成后（中继含 identity）</button>'+
+    (m.mode==='merged'?'<select class="select" style="width:190px;height:28px" data-action="config-node">'+nodeOptions(n.id)+'</select>'+
+      '<label class="hint" style="display:flex;align-items:center;gap:5px"><input class="chk" type="checkbox" data-action="toggle-secret" '+(m.showSecret?'checked':'')+'> 显示敏感值（真实环境不提供）</label>':'')+
+    '</div><pre class="code">'+esc(configText(m.mode,m.nodeId,m.showSecret))+'</pre>'+
+    '<div class="note" style="margin-top:12px">身份 3 行来自 Mihomo 中继目标机 <span class="mono">'+esc(appById(state.appId).identityPath)+'</span>（0600），随机器永久保留；Hysteria2 落地机不消费该段、直接写入模板原文。<strong>install / upgrade / rollback 走同一执行路径</strong>，代码里没有 first_install 分支 '+A(1)+A(7)+'</div>';
+}
+function nodeOptions(sel){
+  var s='';
+  for(var i=0;i<nodes.length;i++){ var n=nodes[i]; if(n.deleted) continue; s+='<option value="'+n.id+'" '+(n.id===sel?'selected':'')+'>'+esc(n.ip)+' '+esc(n.name)+'</option>'; }
+  return s;
+}
+function artifactView(m){
+  return '<div class="meta-grid">'+meta('制品名','mihomo-linux-amd64.tgz')+meta('sha256','a3f1c07d…9c2e')+meta('大小','8.2 MB')+meta('MinIO 前缀','deployer-artifacts/')+'</div>'+
+    '<div class="note" style="margin-top:14px">制品按 <span class="mono">file_id + sha256</span> 固化、不可覆盖；回滚直接取历史对象，不做整包备份。服务端制品<strong>不开放匿名 GetObject</strong>，deployer 走 X-Service-Token 鉴权下载 '+A(6)+'</div>'+
+    '<div class="note warn" style="margin-top:10px">文件服务在 develop-tg、deployer 在 develop-hy，跨机地址不能写 127.0.0.1 '+A(6)+'</div>';
+}
+
+/* ---------- 部署弹窗（唯一保留勾选框的入口） ---------- */
+function deployView(m){
+  var a=appById(m.appId),rows='';
+  for(var i=0;i<nodes.length;i++){
+    var n=nodes[i];
+    if(n.deleted||n.type!==a.type) continue;
+    var d=dep(a.id,n.id),cur=d?d.version:'—';
+    var mark=d?(d.version===m.version?'已装同版本 · 重复部署':'首次安装'):'首次安装';
+    var chk='<input class="chk" type="checkbox" data-action="toggle-deploy-node" data-node="'+n.id+'" '+(m.selected.has(n.id)?'checked':'')+'>';
+    rows+='<tr><td>'+chk+'</td><td class="mono">'+esc(n.ip)+'</td><td>'+esc(n.name)+'</td><td>'+badge(TYPES[n.type],TYPE_BADGE[n.type])+'</td>'+
+      '<td>'+badge(cur,'gray')+'</td><td>'+badge(mark,d?'blue':'green')+'</td>'+
+      '<td>'+(n.identity?badge('已初始化','green'):badge('未初始化 · 部署将被拒绝','red'))+'</td></tr>';
+  }
+  return '<div class="note" style="margin-bottom:12px">从版本行点开，<strong>无上游列表页勾选</strong>，因此本弹窗是唯一保留勾选框的选择入口；其余向导一律只读快照 '+A(3)+'</div>'+
+    '<table class="tbl"><thead><tr><th></th><th>服务器 IP</th><th>节点名称</th><th>类型</th><th>当前版本</th><th>安装类型</th><th>identity 前置</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="note warn" style="margin-top:12px">中继应用部署前探测目标机 identity 文件，<strong>缺失即拒绝</strong>并提示「请先到服务器台账初始化节点身份」；落地应用不签发身份文件、统一模板原文写入；已软删节点已被过滤 '+A(7)+A(8)+'</div>';
+}
+
+/* ---------- 目标校验（逐节点） ---------- */
+function checkTargets(appId,target,nodeIds,mode){
+  var rows=[],blocked='',executable=0;
+  for(var i=0;i<nodeIds.length;i++){
+    var n=nodeById(nodeIds[i]),d=dep(appId,nodeIds[i]),cur=d?d.version:'v0';
+    var diff=verNo(target)-verNo(cur),verdict='',tone='green';
+    if(mode==='rollback'&&diff>0){ blocked='目标 '+target+' 高于 '+n.ip+' 当前 '+cur+'：这是升级，请走升级入口'; verdict='硬阻断'; tone='red'; }
+    else if(mode==='upgrade'&&diff<=0){ blocked='升级目标必须高于 '+n.ip+' 当前 '+cur+'；旧版请走回滚入口'; verdict='硬阻断'; tone='red'; }
+    else if(diff===0){ verdict='无需变更 · 自动跳过'; tone='gray'; }
+    else { executable++; verdict=(mode==='rollback'&&Math.abs(diff)>1)?'跨版本降级 · 需确认':'正常执行'; tone=(mode==='rollback'&&Math.abs(diff)>1)?'orange':'green'; }
+    rows.push({nodeId:nodeIds[i],ip:n.ip,name:n.name,cur:cur,verdict:verdict,tone:tone,skipped:diff===0});
+  }
+  return {rows:rows,blocked:blocked,executable:executable};
+}
+function snapshotTable(m){
+  var rows='';
+  for(var i=0;i<m.nodes.length;i++){
+    var n=nodeById(m.nodes[i]),d=dep(m.appId,m.nodes[i]);
+    rows+='<tr><td class="mono">'+esc(n.ip)+'</td><td>'+esc(n.name)+'</td><td>'+badge(TYPES[n.type],TYPE_BADGE[n.type])+'</td>'+
+      '<td>'+badge(d?d.version:'—','blue')+'</td><td>'+badge(d?(d.lastSuccess||'—'):'—','green')+'</td></tr>';
+  }
+  return '<div class="note" style="margin-bottom:12px">以下是列表页勾选的<strong>不可变只读快照</strong>：无勾选框、不能新增节点；要调整范围请关闭弹窗回列表页修改 '+A(3)+'</div>'+
+    '<table class="tbl"><thead><tr><th>服务器 IP</th><th>节点名称</th><th>类型</th><th>当前版本（实况）</th><th>上次成功</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function versionOptions(appId,sel,mode,nodeIds){
+  var v=vs(appId),s='<option value="">请选择目标版本…</option>';
+  for(var i=0;i<v.length;i++){
+    var lb='v'+v[i].no,ok=true;
+    for(var j=0;j<nodeIds.length;j++){
+      var d=dep(appId,nodeIds[j]),cur=d?d.version:'v0';
+      if(mode==='upgrade'&&verNo(lb)<=verNo(cur)) ok=false;
+    }
+    if(!ok) continue;
+    s+='<option value="'+lb+'" '+(lb===sel?'selected':'')+'>'+lb+(appById(appId).stable===lb?'（稳定版）':'')+' · '+esc(v[i].time)+' · '+esc(v[i].note)+'</option>';
+  }
+  return s;
+}
+function wizardView(m){
+  var steps='<div class="steps"><div class="step '+(m.step===1?'active':'done')+'"><span class="step-num">1</span>确认范围 + 选目标版本</div>'+
+    '<div class="step '+(m.step===2?'active':'')+'"><span class="step-num">2</span>确认影响</div></div>';
+  if(m.step===1){
+    var c=m.target?checkTargets(m.appId,m.target,m.nodes,'upgrade'):null;
+    return steps+snapshotTable(m)+
+      '<div class="card" style="padding:14px 16px;margin-top:14px">'+
+      fld('统一目标版本（必选）','<select class="select" data-action="wizard-target">'+versionOptions(m.appId,m.target,'upgrade',m.nodes)+'</select>',
+        '升级只允许选比选中节点更新的版本；旧版一律走回滚入口 '+A(4))+
+      (c&&c.blocked?'<div class="note warn">'+esc(c.blocked)+'</div>':(c?'<div class="note ok">逐节点校验通过，可执行 '+c.executable+' 台</div>':''))+
+      '</div>';
+  }
+  var ck=checkTargets(m.appId,m.target,m.nodes,'upgrade'),lines='';
+  for(var i=0;i<ck.rows.length;i++){ lines+=esc(ck.rows[i].ip)+'  '+ck.rows[i].cur+' → '+m.target+'  ['+ck.rows[i].verdict+']'; if(i<ck.rows.length-1) lines+=' ; '; }
+  return steps+'<div class="card" style="padding:16px;margin-bottom:14px"><div style="font-weight:500;margin-bottom:8px">升级摘要</div>'+
+    '<div class="meta-grid">'+meta('应用',appById(m.appId).name)+meta('节点数',m.nodes.length+' 台')+meta('目标版本',m.target)+meta('类型','升级')+'</div>'+
+    '<div class="mono hint" style="margin-top:10px">'+esc(lines)+'</div></div>'+
+    '<div class="form-grid">'+fld('分批并发','<select class="select" data-action="wizard-concurrency"><option value="1" '+(m.concurrency==='1'?'selected':'')+'>1 台（推荐）</option><option value="2" '+(m.concurrency==='2'?'selected':'')+'>2 台</option><option value="all" '+(m.concurrency==='all'?'selected':'')+'>全部同时</option></select>')+
+    fld('提交漂移校验 '+A(8),'<label style="display:flex;align-items:center;gap:6px"><input class="chk" type="checkbox" data-action="wizard-drift" '+(m.simulateDrift?'checked':'')+'> 模拟「提交时版本被他人改动」</label>')+'</div>'+
+    '<div class="note warn" style="margin-bottom:12px">升级会<strong>停服重启并断开现有用户连接</strong>；中转节点建议分批、避开高峰。失败不做自动回滚，台账如实记实况版本 '+A(5)+'</div>'+
+    '<div class="field"><label style="display:flex;align-items:center;gap:6px"><input class="chk" type="checkbox" data-action="wizard-confirm" '+(m.confirm?'checked':'')+'> 我已确认目标版本与断连影响</label></div>';
+}
+function rollbackView(m){
+  var steps='<div class="steps"><div class="step '+(m.step===1?'active':'done')+'"><span class="step-num">1</span>人工指定统一目标版本</div>'+
+    '<div class="step '+(m.step===2?'active':'')+'"><span class="step-num">2</span>确认影响</div></div>';
+  if(m.step===1){
+    var c=m.target?checkTargets(m.appId,m.target,m.nodes,'rollback'):null,extra='';
+    if(c){
+      extra='<div class="card" style="padding:12px 14px;margin-top:12px"><div style="font-weight:500;margin-bottom:8px">逐节点校验 '+A(4)+'</div>'+
+        '<table class="tbl"><thead><tr><th>服务器 IP</th><th>当前</th><th>目标</th><th>判定</th></tr></thead><tbody>';
+      for(var i=0;i<c.rows.length;i++){ var r=c.rows[i]; extra+='<tr><td class="mono">'+esc(r.ip)+'</td><td>'+badge(r.cur,'blue')+'</td><td>'+badge(m.target,'gray')+'</td><td>'+badge(r.verdict,r.tone)+'</td></tr>'; }
+      extra+='</tbody></table></div>';
+    }
+    return steps+'<div class="note" style="margin-bottom:12px">回滚目标<strong>由人工统一指定一个版本</strong>，不预置台账推导值、不逐台覆盖；下拉给全量版本并带创建时间与说明。回滚不产生新版本 '+A(4)+'</div>'+
+      '<div class="card" style="padding:14px 16px;margin-bottom:12px">'+
+      fld('统一目标版本（必选）','<select class="select" data-action="rollback-target" data-node="">'+versionOptions(m.appId,m.target,'rollback',m.nodes)+'</select>',
+        '目标 > 任一节点当前版本 → 硬阻断整批；等于 → 该节点跳过；跨版本降级 → 软警告')+
+      (c&&c.blocked?'<div class="note warn">'+esc(c.blocked)+'：请改用升级入口</div>':(c?'<div class="note ok">可执行 '+c.executable+' 台，其余节点自动跳过</div>':''))+
+      '</div>'+snapshotTable(m)+extra;
+  }
+  var ck=checkTargets(m.appId,m.target,m.nodes,'rollback'),lines='';
+  for(var j=0;j<ck.rows.length;j++){ lines+=esc(ck.rows[j].ip)+'  '+ck.rows[j].cur+' → '+m.target+'  ['+ck.rows[j].verdict+']'; if(j<ck.rows.length-1) lines+=' ; '; }
+  return steps+'<div class="card" style="padding:16px;margin-bottom:14px"><div style="font-weight:500;margin-bottom:8px">回滚摘要</div>'+
+    '<div class="meta-grid">'+meta('应用',appById(m.appId).name)+meta('节点数',m.nodes.length+' 台')+meta('目标版本',m.target)+meta('类型','回滚（不产生新版本）')+'</div>'+
+    '<div class="mono hint" style="margin-top:10px">'+esc(lines)+'</div></div>'+
+    '<div class="form-grid">'+fld('分批并发','<select class="select" data-action="wizard-concurrency"><option value="1" '+(m.concurrency==='1'?'selected':'')+'>1 台（推荐）</option><option value="2" '+(m.concurrency==='2'?'selected':'')+'>2 台</option><option value="all" '+(m.concurrency==='all'?'selected':'')+'>全部同时</option></select>')+
+    fld('提交漂移校验 '+A(8),'<label style="display:flex;align-items:center;gap:6px"><input class="chk" type="checkbox" data-action="wizard-drift" '+(m.simulateDrift?'checked':'')+'> 模拟「提交时版本被他人改动」</label>')+'</div>'+
+    '<div class="note warn" style="margin-bottom:12px">回滚同样<strong>停服重启并断开现有连接</strong>；跨版本降级可能跳过中间配置变更，请确认上表判定。失败不自动回滚 '+A(4)+A(5)+'</div>'+
+    '<div class="field"><label style="display:flex;align-items:center;gap:6px"><input class="chk" type="checkbox" data-action="wizard-confirm" '+(m.confirm?'checked':'')+'> 我已确认统一目标版本与断连影响</label></div>';
+}
+function taskDetail(m){
+  var t=taskById(m.taskId),rows='';
+  for(var i=0;i<t.items.length;i++){
+    var it=t.items[i],n=nodeById(it.nodeId),s=ITEM_STATUS[it.status]||['—','gray'];
+    rows+='<tr><td class="mono">'+esc(n.ip)+'</td><td>'+badge(it.from,'gray')+' → '+badge(it.to||t.target,'blue')+'</td><td>'+badge(s[0],s[1])+'</td>'+
+      '<td>'+(it.reason?'<span class="hint">'+esc(it.reason)+'</span>':'<span class="hint">—</span>')+'</td>'+
+      '<td><div class="row-actions">'+(it.status==='failed'?'<button class="btn sm" data-action="retry-item" data-task="'+t.id+'" data-node="'+it.nodeId+'">重试</button>':'')+
+      (it.status==='failed'?'<button class="btn sm danger" data-action="goto-rollback" data-node="'+it.nodeId+'">前往回滚</button>':'')+
+      '<button class="btn sm" data-action="item-log" data-task="'+t.id+'" data-node="'+it.nodeId+'">日志</button></div></td></tr>';
+  }
+  return '<div class="meta-grid" style="margin-bottom:14px">'+meta('批次',t.id)+meta('应用',appById(t.appId).name)+meta('类型',MODE_LABEL[t.mode][0])+meta('目标版本',t.target)+
+    meta('发起人',t.by)+meta('开始 / 结束',t.start+' → '+(t.end||'进行中'))+meta('分批并发',t.concurrency)+meta('状态',BATCH_STATUS[t.status][0])+'</div>'+
+    '<table class="tbl"><thead><tr><th>服务器 IP</th><th>版本变化</th><th>状态</th><th>失败原因</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="note" style="margin-top:14px">失败节点台账<strong>如实记实况版本</strong> + status=failed，不做自动回滚、不做 failed 门禁；「重试」是同一批次续跑，回滚需到「已部署节点」tab 人工指定目标版本 '+A(5)+'</div>';
+}
+function initIdentityView(m){
+  var n=nodeById(m.nodeId);
+  return '<div class="note" style="margin-bottom:14px">一次性动作（<strong>仅 Mihomo 中继</strong>）：<strong>deployer 内存生成随机密码 → bcrypt hash 登记中继 → 明文经 SSH 写目标机 0600 identity 文件 → 审计只记 node_id</strong>。前端不回显明文。落地节点（Hysteria2）不需要也不允许初始化 '+A(7)+'</div>'+
+    '<div class="meta-grid" style="margin-bottom:14px">'+meta('目标 IP',n.ip)+meta('台账 node_id',n.id)+meta('identity 路径',appById(n.type==='relay'?'mihomo-relay':'hysteria2-landing').identityPath)+meta('状态','未初始化')+'</div>'+
+    fld('确认 dataplane_node_id（必填）','<input class="input mono" id="f-dpid" value="'+esc(n.id)+'">',
+      '不静默假设与 t_node_asset.node_id 对齐；两者可以不对齐，且不加 external_ref 映射列 '+A(7))+
+    '<div class="note warn">已初始化节点会拒绝重复初始化；轮换会立即使在线节点失效，P0 不做自动轮换 '+A(7)+'</div>'+
+    '<div class="field" style="margin-top:12px"><label style="display:flex;align-items:center;gap:6px"><input class="chk" type="checkbox" data-action="init-confirm" '+(m.confirm?'checked':'')+'> 我已确认该 ID 与目标机器一致，且知晓初始化只做一次</label></div>';
+}
+function nodeLogView(m){
+  var n=nodeById(m.nodeId),d=dep(m.appId,n.id);
+  return '<div class="meta-grid" style="margin-bottom:14px">'+meta('节点',n.ip)+meta('当前版本（实况）',d?d.version:'—')+meta('上次成功',d?(d.lastSuccess||'—'):'—')+meta('状态',d?d.status:'—')+'</div>'+
+    '<pre class="code">['+esc(d?d.time:'—')+'] 部署台账最后一次更新\n'+
+    (d&&d.status==='failed'?'[健康检查失败] 制品已替换并重启，台账如实记 current='+d.version+' / status=failed\n[处理] 人工在任务明细选择「重试」，或到「已部署节点」勾选后回滚\n':
+    '[健康检查通过] current='+(d?d.version:'—')+' / status=healthy\n')+
+    '[配置] 纯业务模板原文写入 conf/config.yaml（所有 service_type 同一路径，不合成身份）</pre>';
+}
+function driftView(m){
+  return '<div class="note warn" style="margin-bottom:12px">提交时比对快照发现 <strong>'+m.drifted.length+' 台节点</strong>的当前版本与勾选时不一致 '+A(8)+'</div>'+
+    '<table class="tbl"><thead><tr><th>服务器 IP</th><th>提交快照</th><th>台账实况</th></tr></thead><tbody>'+
+    m.drifted.map(function(x){ return '<tr><td class="mono">'+esc(x.ip)+'</td><td>'+badge(x.snapshot,'gray')+'</td><td>'+badge(x.current,'red')+'</td></tr>'; }).join('')+
+    '</tbody></table><div class="note plain" style="margin-top:12px">轻量提示，<strong>不强制锁</strong>（与客户端发布去掉 expected_release_id 的决策一致）；人工确认后二次提交。建议返回列表页刷新后再操作 '+A(8)+'</div>';
+}
+
+/* ---------- 设计依据抽屉 ---------- */
+function renderDrawer(){
+  var root=document.getElementById('drawer-root');
+  if(!state.drawer){ root.innerHTML=''; return; }
+  var cards='',lastGroup='';
+  for(var i=0;i<DECISIONS.length;i++){
+    var q=DECISIONS[i];
+    if(q.group!==lastGroup){ cards+='<div class="hint" style="margin:'+(i?'14px':'2px')+' 0 8px">'+esc(q.group)+'</div>'; lastGroup=q.group; }
+    cards+='<div class="qcard '+(state.drawerFocus===q.n?'focus':'')+'" data-action="focus-q" data-q="'+q.n+'">'+
+      '<div class="qtitle">D'+q.n+' · '+esc(q.title)+'</div><div class="qbody">'+esc(q.body)+'</div><div class="qrec">'+esc(q.rec)+'</div></div>';
+  }
+  root.innerHTML='<div class="drawer-mask" data-action="close-drawer"></div><div class="drawer"><div class="drawer-head">'+
+    '<div><div style="font-weight:500">设计依据（已定案）</div><div class="hint">事实源：release-center.md</div></div>'+
+    '<button class="btn sm ghost" data-action="close-drawer">✕</button></div>'+
+    '<div class="drawer-body"><div class="note" style="margin-bottom:14px">上一版「待确认 8 点」已全部拍板。已删除的作废设计：按节点渲染占位符、批次回滚、失败自动回滚、台账推导目标、逐台不同目标、failed 门禁、control/web 类型。</div>'+cards+'</div></div>';
+}
+
+/* ---------- 任务模拟 ---------- */
+function createTask(appId,target,nodeIds,mode,concurrency){
+  var id='B-20261114-'+String(seq++).padStart(3,'0'),items=[];
+  for(var i=0;i<nodeIds.length;i++){
+    var d=dep(appId,nodeIds[i]),ck=checkTargets(appId,target,[nodeIds[i]],mode);
+    var skip=ck.rows[0]&&ck.rows[0].skipped;
+    items.push({nodeId:nodeIds[i],from:d?d.version:'—',to:target,status:skip?'skipped':(i===0?'running':'pending'),ticks:0,
+      logs:['['+nowTime()+'] '+(mode==='rollback'?'人工指定目标 '+target:'目标 '+target)+'，'+(skip?'无需变更，跳过':'入队等待节点串行锁')]});
+  }
+  var t={id:id,appId:appId,target:target,mode:mode,by:'admin',start:nowTime(),end:'',concurrency:concurrency||'1',status:'running',items:items};
+  tasks.unshift(t);
+  return t;
+}
+function finishItem(t,it){
+  var dl=deployments[t.appId]||(deployments[t.appId]=[]),found=false;
+  for(var i=0;i<dl.length;i++){
+    if(dl[i].nodeId===it.nodeId){ dl[i].lastSuccess=dl[i].version; dl[i].version=it.to||t.target; dl[i].status='healthy'; dl[i].time=nowTime(); found=true; }
+  }
+  if(!found) dl.push({nodeId:it.nodeId,version:it.to||t.target,lastSuccess:'—',status:'healthy',time:nowTime()});
+  it.logs.push('['+nowTime()+'] ELF 原子替换 + 纯业务模板原文写入完成；setup.sh status 通过；台账已更新');
+}
+function tick(){
+  var changed=false;
+  for(var i=0;i<tasks.length;i++){
+    var t=tasks[i]; if(t.status!=='running') continue;
+    for(var j=0;j<t.items.length;j++){
+      var it=t.items[j];
+      if(it.status==='running'){
+        it.ticks++;
+        if(it.ticks===1) it.logs.push('['+nowTime()+'] 从 MinIO 拉取制品，sha256 校验通过');
+        else { it.status='succeeded'; finishItem(t,it); }
+        changed=true; break;
+      }
+      if(it.status==='pending'){ it.status='running'; it.logs.push('['+nowTime()+'] 获得节点串行锁，开始执行'); changed=true; break; }
+    }
+    var unfinished=false;
+    for(var k=0;k<t.items.length;k++){ if(t.items[k].status==='running'||t.items[k].status==='pending') unfinished=true; }
+    if(!unfinished){ t.status=t.items.some(function(x){return x.status==='failed';})?'failed':'succeeded'; t.end=nowTime(); }
+  }
+  if(changed){ render(); if(state.modal&&state.modal.type==='task') renderModal(); }
+}
+function openWizard(){
+  var ids=Array.from(state.selected);
+  if(!ids.length){ toast('请先选择要升级的服务器'); return; }
+  state.modal={type:'wizard',title:'批量升级 · '+appById(state.appId).name,appId:state.appId,step:1,nodes:ids,target:'',concurrency:'1',confirm:false,simulateDrift:false,wide:true};
+  renderModal();
+}
+function openRollback(ids){
+  if(!ids||!ids.length){ toast('请先选择要回滚的服务器'); return; }
+  state.modal={type:'rollback',title:'批量回滚 · '+appById(state.appId).name,appId:state.appId,step:1,nodes:ids,target:'',concurrency:'1',confirm:false,simulateDrift:false,wide:true};
+  renderModal();
+}
+function submitTask(m){
+  if(m.simulateDrift){
+    var drifted=[];
+    for(var i=0;i<m.nodes.length;i++){
+      var n=nodeById(m.nodes[i]),d=dep(m.appId,m.nodes[i]);
+      drifted.push({ip:n.ip,snapshot:d?d.version:'—',current:'v'+(verNo(d?d.version:'v1')+1)});
+    }
+    state.modal={type:'drift',title:'检测到节点版本漂移',drifted:drifted,pending:m};
+    renderModal(); return;
+  }
+  var mode=m.type==='rollback'?'rollback':(m.mode||'upgrade');
+  var t=createTask(m.appId,m.target,m.nodes,mode,m.concurrency);
+  state.modal=null; state.view='tasks'; state.taskFilter='all'; render(); renderModal();
+  toast('已提交 '+MODE_LABEL[mode][0]+'批次 '+t.id+'（只读快照 '+m.nodes.length+' 台）');
+}
+function driftConfirm(){
+  var p=state.modal.pending; p.simulateDrift=false;
+  var t=createTask(p.appId,p.target,p.nodes,p.type==='rollback'?'rollback':'upgrade',p.concurrency);
+  state.modal=null; state.view='tasks'; render(); renderModal();
+  toast('人工确认后二次提交成功：'+t.id);
+}
+
+/* ---------- 事件 ---------- */
+function onClick(a,el){
+  var m=state.modal;
+  switch(a){
+    case 'nav-apps': state.view='apps'; state.selected.clear(); state.modal=null; render(); renderModal(); return;
+    case 'nav-tasks': state.view='tasks'; state.modal=null; render(); renderModal(); return;
+    case 'nav-nodes': state.view='nodes'; state.modal=null; render(); renderModal(); return;
+    case 'open-app': state.view='appDetail'; state.appId=el.dataset.app; state.tab='versions'; state.selected.clear(); render(); return;
+    case 'tab': state.tab=el.dataset.tab; state.selected.clear(); render(); return;
+    case 'open-discussion': state.drawer=true; state.drawerFocus=parseInt(el.dataset.q||'0',10); renderDrawer(); return;
+    case 'focus-q': state.drawerFocus=parseInt(el.dataset.q,10); renderDrawer(); return;
+    case 'close-drawer': state.drawer=false; renderDrawer(); return;
+    case 'close-modal': state.modal=null; renderModal(); return;
+    case 'new-app': state.modal={type:'newApp',title:'新建应用'}; renderModal(); return;
+    case 'submit-new-app': {
+      var key=(document.getElementById('f-key').value||'').trim();
+      if(!key){ toast('请填写应用 key'); return; }
+      apps.push({id:key,key:key,name:(document.getElementById('f-name').value||key),type:document.getElementById('f-type').value,
+        configName:document.getElementById('f-configname').value,configPath:document.getElementById('f-configpath').value,
+        binPath:document.getElementById('f-binpath').value,lifecycle:document.getElementById('f-life').value,health:document.getElementById('f-health').value,
+        identityPath:IDENTITY_BY_TYPE[document.getElementById('f-type').value],stable:'—',last:nowTime(),note:'新建（模拟）'});
+      versions[key]=[]; deployments[key]=[]; state.modal=null; render(); renderModal(); toast('已创建应用 '+key+'（模拟）'); return;
+    }
+    case 'new-version': state.modal={type:'newVersion',title:'新建版本 · '+appById(state.appId).name,appId:state.appId}; renderModal(); return;
+    case 'submit-new-version': {
+      var a=appById(state.appId),no=maxNo(a.id)+1;
+      versions[a.id].unshift({no:no,time:nowTime(),by:'admin',bin:'artifact-'+a.key+'-v'+no+'.tgz',size:'8.3 MB',sha:'b71e0c'+no+'…9f2a',config:'config-'+a.key+'-v'+no+'.yaml',note:(document.getElementById('f-note').value||'新建版本（模拟）')});
+      if(document.getElementById('f-stable').checked) a.stable='v'+no;
+      state.modal=null; render(); renderModal(); toast('已创建 v'+no+'（模拟，版本号自增）'); return;
+    }
+    case 'view-config': state.modal={type:'config',title:'查看配置 · '+el.dataset.ver,appId:state.appId,ver:el.dataset.ver,mode:'template',nodeId:state.configNode,showSecret:false,wide:true}; renderModal(); return;
+    case 'config-mode': m.mode=el.dataset.mode; renderModal(); return;
+    case 'toggle-secret': m.showSecret=!m.showSecret; renderModal(); return;
+    case 'view-artifact': state.modal={type:'artifact',title:'制品详情 · '+el.dataset.ver}; renderModal(); return;
+    case 'open-deploy': state.modal={type:'deploy',title:'部署 '+el.dataset.ver+' · '+appById(state.appId).name,appId:state.appId,version:el.dataset.ver,selected:new Set(),wide:true}; renderModal(); return;
+    case 'toggle-deploy-node': { var id=el.dataset.node; if(m.selected.has(id)) m.selected.delete(id); else m.selected.add(id); renderModal(); return; }
+    case 'submit-deploy': {
+      var missing=[];
+      m.selected.forEach(function(id){ if(!nodeById(id).identity) missing.push(nodeById(id).ip); });
+      if(missing.length){ toast('identity 前置未满足：'+missing.join(', ')+'，请先初始化节点身份'); return; }
+      var t=createTask(m.appId,m.version,Array.from(m.selected),'install','1');
+      state.modal=null; state.view='tasks'; render(); renderModal(); toast('已提交部署批次 '+t.id); return;
+    }
+    case 'toggle-row': { var nid=el.dataset.node; if(state.selected.has(nid)) state.selected.delete(nid); else state.selected.add(nid); render(); return; }
+    case 'select-all': { var dd=ds(state.appId); for(var q=0;q<dd.length;q++) state.selected.add(dd[q].nodeId); render(); return; }
+    case 'wizard-one': state.selected=new Set([el.dataset.node]); openWizard(); return;
+    case 'open-wizard': openWizard(); return;
+    case 'rollback-one': openRollback([el.dataset.node]); return;
+    case 'open-rollback': openRollback(Array.from(state.selected)); return;
+    case 'goto-rollback': {
+      state.modal=null; state.view='appDetail'; state.tab='deployments';
+      state.selected=new Set([el.dataset.node]); render(); renderModal();
+      openRollback([el.dataset.node]); toast('已预选该节点，请在回滚向导里人工指定目标版本'); return;
+    }
+    case 'wizard-next': {
+      var ck=checkTargets(m.appId,m.target,m.nodes,m.type==='rollback'?'rollback':'upgrade');
+      if(ck.blocked){ toast(ck.blocked); return; }
+      if(!ck.executable){ toast('全部节点均无需变更，整批拒绝'); return; }
+      m.step=2; renderModal(); return;
+    }
+    case 'wizard-prev': m.step=1; renderModal(); return;
+    case 'submit-wizard': submitTask(m); return;
+    case 'submit-rollback': submitTask(m); return;
+    case 'open-task': state.modal={type:'task',title:'任务明细 · '+el.dataset.task,taskId:el.dataset.task,wide:true}; renderModal(); return;
+    case 'retry-item': {
+      var tt=taskById(el.dataset.task);
+      for(var r=0;r<tt.items.length;r++){ if(tt.items[r].nodeId===el.dataset.node){ tt.items[r].status='running'; tt.items[r].ticks=0; tt.items[r].reason=''; tt.items[r].logs.push('['+nowTime()+'] 人工重试：同一批次续跑'); } }
+      tt.status='running'; tt.end=''; renderModal(); toast('已重新入队（同一批次续跑，不产生新批次）'); return;
+    }
+    case 'item-log': {
+      var it2=null,ta=taskById(el.dataset.task);
+      for(var z=0;z<ta.items.length;z++){ if(ta.items[z].nodeId===el.dataset.node) it2=ta.items[z]; }
+      state.modal={type:'nodeLog',title:'节点执行日志 · '+nodeById(el.dataset.node).ip,appId:ta.appId,nodeId:el.dataset.node,
+        logHtml:'<pre class="code">'+esc((it2?it2.logs:['暂无日志']).join('\n'))+'</pre>',wide:true};
+      renderModal(); return;
+    }
+    case 'node-log': { var lg=nodeLogView({appId:state.appId,nodeId:el.dataset.node}); state.modal={type:'nodeLog',title:'节点部署记录 · '+nodeById(el.dataset.node).ip,appId:state.appId,nodeId:el.dataset.node,logHtml:lg,wide:true}; renderModal(); return; }
+    case 'init-identity': state.modal={type:'initIdentity',title:'初始化节点身份 · '+nodeById(el.dataset.node).ip,nodeId:el.dataset.node,confirm:false}; renderModal(); return;
+    case 'submit-init-identity': {
+      var n2=nodeById(m.nodeId); n2.identity=true; state.modal=null; render(); renderModal();
+      toast('已初始化（模拟）：明文未回显，审计仅记 node_id'); return;
+    }
+    case 'drift-confirm': driftConfirm(); return;
+  }
+}
+function onChange(a,t){
+  var m=state.modal;
+  if(a==='filter-version'){ state.filter=t.value; render(); return; }
+  if(a==='task-filter'){ state.taskFilter=t.value; render(); return; }
+  if(a==='config-node'){ m.nodeId=t.value; state.configNode=t.value; renderModal(); return; }
+  if(a==='wizard-target'||a==='rollback-target'){ m.target=t.value; renderModal(); return; }
+  if(a==='wizard-concurrency'){ m.concurrency=t.value; renderModal(); return; }
+  if(a==='wizard-confirm'){ m.confirm=t.checked; renderModal(); return; }
+  if(a==='wizard-drift'){ m.simulateDrift=t.checked; renderModal(); return; }
+  if(a==='init-confirm'){ m.confirm=t.checked; renderModal(); return; }
+}
+function bind(){
+  document.addEventListener('click',function(e){
+    var el=e.target.closest?e.target.closest('[data-action]'):null;
+    if(!el) return;
+    var a=el.dataset.action;
+    if(a==='close-modal'||a==='close-drawer'||a==='open-discussion'||a==='focus-q'){ onClick(a,el); return; }
+    onClick(a,el);
+  });
+  document.addEventListener('change',function(e){
+    var el=e.target.closest?e.target.closest('[data-action]'):null;
+    if(!el) return;
+    onChange(el.dataset.action,el);
+  });
+  setInterval(tick,1600);
+}
+if(typeof document!=='undefined'&&document.getElementById('app')){ render(); renderModal(); renderDrawer(); bind(); }
+</script>
+</body>
+</html>

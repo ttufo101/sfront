@@ -1,10 +1,11 @@
-// 数据面中转节点管理页（/data-plane-nodes）。
-// 对齐 admin.md §12 与 plan.md §14：运行状态与调度状态双列独立展示（不前端自推），
-// 15 秒静默轮询（不覆盖编辑表单、失败保留旧数据+顶部非阻塞错误），新增隔离/恢复操作，
-// 编辑含 advertise_host 与 scheduling_status，只读派生"可分配"提示。
+// 中转接入 tab（统一「节点管理」/nodes?tab=relay 下）。
+// 运行状态与调度状态双列独立展示（不前端自推）；15 秒静默轮询，失败保留旧数据+顶部非阻塞错误。
+// 「下架接入」= scheduling_status=isolated：不再被选为接入 IP；故障节点仍展示，只是不参与选路。
+// 下架前若存在严格固定用户，后端返回 blocked_uids，前端提示先迁移，不做事务向导。
 // 创建与轮换密码成功后，明文密码仅在响应返回一次，必须通过弹窗立即展示并提示保存，关闭后不可再查。
 
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { XrpcError } from '@/lib/xrpc/types'
 import { DataPlaneNode, UpdateDataPlaneNodeRequest } from '@/lib/xrpc/admin-contract'
@@ -91,13 +92,11 @@ function runtimeBadge(status: string): { label: string; variant: 'success' | 'se
 function schedulingBadge(status: string): { label: string; variant: 'success' | 'secondary' | 'warning' } {
   switch (status) {
     case 'active':
-      return { label: '参与调度', variant: 'success' }
-    case 'draining':
-      return { label: '排空', variant: 'warning' }
+      return { label: '已上架接入', variant: 'success' }
     case 'isolated':
-      return { label: '已隔离', variant: 'warning' }
+      return { label: '已下架接入', variant: 'warning' }
     default:
-      return { label: '已禁用', variant: 'secondary' }
+      return { label: '未部署', variant: 'secondary' }
   }
 }
 
@@ -130,6 +129,7 @@ export function DataPlaneNodesPage() {
   const [editHostError, setEditHostError] = useState<string | null>(null)
   const [pwd, setPwd] = useState<PasswordState>({ open: false, password: '', nodeLabel: '' })
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
+  const [blockedUids, setBlockedUids] = useState<string[] | null>(null)
 
   const buildUpdate = useCallback(
     (n: DataPlaneNode, patch: Partial<Pick<DataPlaneNode, 'display_name' | 'enabled' | 'advertise_host' | 'scheduling_status'>>): UpdateDataPlaneNodeRequest => ({
@@ -216,7 +216,7 @@ export function DataPlaneNodesPage() {
     setEditHostError(null)
     setBusy(true)
     try {
-      await updateDataPlaneNode(
+      const res = await updateDataPlaneNode(
         buildUpdate(edit.node, {
           display_name,
           enabled: edit.enabled,
@@ -224,6 +224,11 @@ export function DataPlaneNodesPage() {
           scheduling_status: edit.scheduling_status,
         }),
       )
+      if (res.blocked_uids?.length) {
+        setBlockedUids(res.blocked_uids)
+        setEdit(null)
+        return
+      }
       toast.success('节点已更新')
       setEdit(null)
       fetchNodes()
@@ -234,23 +239,27 @@ export function DataPlaneNodesPage() {
     }
   }
 
-  // ---- 隔离 / 恢复 ----
+  // ---- 下架接入 / 上架接入（scheduling_status=isolated / active）----
   const isolateOrRestore = (n: DataPlaneNode) => {
     const restoring = n.scheduling_status === 'isolated'
     setConfirm({
       open: true,
-      title: restoring ? '恢复节点调度' : '隔离节点',
+      title: restoring ? '上架接入' : '下架接入',
       description: restoring
-        ? `将「${n.display_name}（${n.node_id}）」恢复为参与调度（active）。`
-        : `隔离「${n.display_name}（${n.node_id}）」后，该节点不再参与自动与固定节点选择；固定到它的用户将失去该节点（严格固定时返回暂无可用节点）。`,
-      confirmLabel: restoring ? '恢复' : '隔离',
+        ? `将「${n.display_name}（${n.node_id}）」恢复为可参与选路（active），客户端可再次把它作为接入 IP。`
+        : `下架「${n.display_name}（${n.node_id}）」后，该节点不再被选为接入 IP；故障节点仍会展示，但不再参与调度。若存在严格固定到它的用户，系统会阻断并提示先迁移。`,
+      confirmLabel: restoring ? '上架接入' : '下架接入',
       danger: !restoring,
       onConfirm: async () => {
         setBusy(true)
         try {
-          await updateDataPlaneNode(buildUpdate(n, { scheduling_status: restoring ? 'active' : 'isolated' }))
-          toast.success(restoring ? '已恢复调度' : '已隔离节点')
-          fetchNodes()
+          const res = await updateDataPlaneNode(buildUpdate(n, { scheduling_status: restoring ? 'active' : 'isolated' }))
+          if (res.blocked_uids?.length) {
+            setBlockedUids(res.blocked_uids)
+          } else {
+            toast.success(restoring ? '已上架接入' : '已下架接入')
+            fetchNodes()
+          }
         } catch (e) {
           toast.error((e as XrpcError).message)
         } finally {
@@ -450,7 +459,7 @@ export function DataPlaneNodesPage() {
                         编辑
                       </Button>
                       <Button variant="link" size="sm" onClick={() => isolateOrRestore(n)} disabled={busy}>
-                        {n.scheduling_status === 'isolated' ? '恢复' : '隔离'}
+                        {n.scheduling_status === 'isolated' ? '上架接入' : '下架接入'}
                       </Button>
                       {n.enabled ? (
                         <Button
@@ -541,12 +550,12 @@ export function DataPlaneNodesPage() {
                   placeholder="公网 IP 或域名，不含协议/端口/空格/?/#"
                 />
                 {editHostError && <p className="text-xs text-destructive">{editHostError}</p>}
-                <p className="text-xs text-muted-foreground">切到「参与调度」时必填；该地址将作为 GetLinks 返回给用户的中转地址。</p>
+                <p className="text-xs text-muted-foreground">切到「已上架接入」时必填；该地址将作为 GetLinks 返回给用户的中转地址。</p>
               </div>
               <div className="space-y-2">
                 <Label>调度状态</Label>
                 <div className="flex flex-wrap gap-2">
-                  {(['active', 'draining', 'isolated', 'disabled'] as const).map((st) => (
+                  {(['active', 'isolated', 'disabled'] as const).map((st) => (
                     <Button
                       key={st}
                       type="button"
@@ -559,7 +568,7 @@ export function DataPlaneNodesPage() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  active=参与调度；isolated=管理员隔离；disabled=尚未完成部署；draining=不再分配新用户。
+                  active=已上架接入（参与选路）；isolated=已下架接入（不再作为接入 IP）；disabled=未部署。故障由心跳判定，与上下架无关。
                 </p>
               </div>
               <div className="flex items-center justify-between">
@@ -601,6 +610,30 @@ export function DataPlaneNodesPage() {
             >
               {confirm?.confirmLabel}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 下架阻隔：严格固定用户需先迁移 */}
+      <Dialog open={!!blockedUids} onOpenChange={(v) => !v && setBlockedUids(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>请先迁移严格固定用户</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2 text-sm">
+            <p className="text-muted-foreground">
+              这些用户被严格固定在该中转节点（不允许回退），下架后将无法获得代理链接。请逐个修改其固定分配，完成后再执行下架。
+            </p>
+            <div className="max-h-48 space-y-1 overflow-y-auto rounded border p-2">
+              {blockedUids?.map((uid) => (
+                <Link key={uid} to={`/users/relay/${uid}`} className="block font-mono text-xs text-primary underline">
+                  {uid}
+                </Link>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setBlockedUids(null)}>知道了</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

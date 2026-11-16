@@ -46,13 +46,11 @@ function runtimeLabel(status: string): string {
 function schedulingLabel(status: string): string {
   switch (status) {
     case 'active':
-      return '参与调度'
-    case 'draining':
-      return '排空'
+      return '已上架接入'
     case 'isolated':
-      return '已隔离'
+      return '已下架接入'
     default:
-      return '已禁用'
+      return '未部署'
   }
 }
 

@@ -176,18 +176,17 @@ export interface UpdateRecommendedAndroidPackagesConfigResponse {
 // ---- 数据面中转节点管理（Admin.ListDataPlaneNodes / CreateDataPlaneNode / UpdateDataPlaneNode / RotateDataPlaneNodePassword）----
 // 对齐 admin.proto（t_dataplane_node）：明文密码（node_password）只在创建/轮换响应返回一次，DB 仅存 bcrypt 哈希。
 // 时间字段标了 [jstype=JS_NUMBER]，按惯例用 string|number 兼容网关下行。
-// 状态以服务端为准：runtime_status（unknown/online/offline）与 scheduling_status（active/draining/isolated/disabled）
+// 状态以服务端为准：runtime_status（unknown/online/offline）与 scheduling_status（active 已上架接入 / isolated 已下架接入 / disabled 未部署）
 // 为两个独立维度，前端不得自行用客户端时间推导在线/离线（见 admin.md §12.3）。
 export interface DataPlaneNode {
   node_id: string
   display_name: string
   enabled: boolean
-  last_seen_at: string | number // int64 秒级（JS_NUMBER）；历史字段，心跳请使用 heartbeat_at
   created_at: string | number // int64 秒级（JS_NUMBER）
   updated_at: string | number // int64 秒级（JS_NUMBER）
   advertise_host: string // GetLinks 对外返回的公网 IP/域名；空=未配置
   runtime_status: string // unknown / online / offline
-  scheduling_status: string // active / draining / isolated / disabled
+  scheduling_status: string // active 已上架接入 / isolated 已下架接入 / disabled 未部署
   started_at: string | number // int64 秒级；Mihomo 启动时间，0/空=-
   heartbeat_at: string | number // int64 秒级；最近心跳，0/空=从未上报
   offline_at: string | number // int64 秒级；离线时间
@@ -210,10 +209,11 @@ export interface UpdateDataPlaneNodeRequest {
   display_name: string
   enabled: boolean // 全量更新（非 patch），未改的字段须传当前值
   advertise_host: string // 公网 IP/域名（仅 IP/域名，不含协议/端口/空格/?/#）；切到 active 时必填
-  scheduling_status: string // active / draining / isolated / disabled
+  scheduling_status: string // active 已上架接入 / isolated 已下架接入 / disabled 未部署
 }
 export interface UpdateDataPlaneNodeResponse {
   success: boolean
+  blocked_uids?: string[] // 非空：被严格固定用户阻断，本次未落库，需先迁移这些用户
 }
 export interface RotateDataPlaneNodePasswordRequest {
   node_id: string
@@ -602,6 +602,47 @@ export interface ReviewOrderPaymentResponse {
   status: string // 裁决后的订单业务状态（paid 或 closed）
 }
 
+// ---- 落地出口归属与人工上下架（t_proxy_outlet / t_node_asset.listing_status）----
+// 「下架」是业务动作而非单一字段：中转用 UpdateDataPlaneNode(scheduling_status=isolated)，
+// 落地用 SetNodeListing(node_id, listing_status)；故障节点仍展示，只是不参与选路。
+export interface ListProxyOutletsRequest {}
+export interface ProxyOutlet {
+  proxy_name: string // 对齐代理 YAML 的 proxies[].name
+  node_id: string // 归属落地机；空=未绑定
+  public_ip: string // 归属机器公网 IP，运维按此核对
+  port: number
+  listing_status: string // listed / delisted
+}
+export interface ListProxyOutletsResponse {
+  outlets: ProxyOutlet[]
+  unmapped_proxy_names: string[] // YAML 有、表里无：需在出口页绑定到机器
+  stale_proxy_names: string[] // 表里有、YAML 已无：YAML 改过名字
+}
+export interface SetNodeListingRequest {
+  node_id: string // 按机器粒度
+  listing_status: string // listed / delisted
+  proxy_names?: string[] // 可选：先绑定这些出口到 node_id，再按机器设置状态；空=只改状态
+}
+export interface SetNodeListingResponse {
+  success: boolean
+  affected_outlets: number
+}
+
+
+// ---- 服务器删除（admin 单事务：台账软删 + 依赖表硬删）----
+// 只允许删除已下架服务器：落地看 listing_status=delisted，中转看 scheduling_status=isolated。
+// 删除后进入「历史服务器」页，中转接入/落地出口 tab 不再出现，不可恢复。
+export interface DeleteNodeAssetRequest {
+  node_id: string
+}
+export interface DeleteNodeAssetResponse {
+  success: boolean
+  node_type: string // relay / landing
+  deleted_outlets: number // 一并硬删的落地出口数
+  deleted_assignments: number // 一并清理的用户固定分配数
+  blocked_uids?: string[] // 非空：被严格固定用户阻断，本次未删除，需先迁移
+}
+
 // ---- 集中映射 ----
 export interface AdminContract {
   ListUsers: { req: ListUsersRequest; res: ListUsersResponse }
@@ -622,6 +663,9 @@ export interface AdminContract {
   RotateDataPlaneNodePassword: { req: RotateDataPlaneNodePasswordRequest; res: RotateDataPlaneNodePasswordResponse }
   GetUserRelayAssignment: { req: GetUserRelayAssignmentRequest; res: GetUserRelayAssignmentResponse }
   SetUserRelayAssignment: { req: SetUserRelayAssignmentRequest; res: SetUserRelayAssignmentResponse }
+  ListProxyOutlets: { req: ListProxyOutletsRequest; res: ListProxyOutletsResponse }
+  SetNodeListing: { req: SetNodeListingRequest; res: SetNodeListingResponse }
+  DeleteNodeAsset: { req: DeleteNodeAssetRequest; res: DeleteNodeAssetResponse }
   GetSharedPlanBenefitsConfig: { req: GetSharedPlanBenefitsConfigRequest; res: GetSharedPlanBenefitsConfigResponse }
   UpdateSharedPlanBenefitsConfig: { req: UpdateSharedPlanBenefitsConfigRequest; res: UpdateSharedPlanBenefitsConfigResponse }
   ListUserDevices: { req: ListUserDevicesRequest; res: ListUserDevicesResponse }

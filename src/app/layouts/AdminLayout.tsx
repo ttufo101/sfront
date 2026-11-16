@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { LogOut, Users, Package, Network, Megaphone, Server, UploadCloud, MessageSquare, Globe, ServerCog, Receipt, UserCheck, Smartphone } from 'lucide-react'
+import { LogOut, Users, Package, Network, Megaphone, Server, UploadCloud, MessageSquare, Globe, ServerCog, Receipt, UserCheck, Smartphone, Boxes, ListChecks, KeyRound } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,10 @@ const NAV = [
   { to: '/orders', label: '订单管理', icon: Receipt },
   { to: '/orders?payment_status=manual_review', label: '人工审核', icon: UserCheck },
   { to: '/proxy', label: '代理配置', icon: Server },
-  { to: '/data-plane-nodes', label: '节点管理', icon: ServerCog },
+  { to: '/nodes', label: '节点管理', icon: ServerCog },
+  { to: '/node-identities', label: '本机身份', icon: KeyRound },
+  { to: '/apps', label: '应用发布', icon: Boxes, prefix: true },
+  { to: '/deploy-tasks', label: '发布任务', icon: ListChecks },
   { to: '/releases', label: '版本发布', icon: UploadCloud },
   { to: '/feedback', label: '用户反馈', icon: MessageSquare },
   { to: '/announcements', label: '公告管理', icon: Megaphone },
@@ -38,8 +41,12 @@ export function AdminLayout() {
         <nav className="flex-1 space-y-1 p-3">
           {NAV.map((item) => {
             const [path, search] = item.to.split('?')
+            // 应用详情 /apps/:appId 仍属于「应用发布」，用前缀匹配保持高亮。
+            const pathMatch = 'prefix' in item && item.prefix
+              ? location.pathname === path || location.pathname.startsWith(path + '/')
+              : path === location.pathname
             const active =
-              path === location.pathname &&
+              pathMatch &&
               (!search ? location.search === '' || location.search === '?' : location.search.includes(search))
             return (
               <NavLink
