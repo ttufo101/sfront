@@ -171,11 +171,26 @@ export function deployerArtifactAccept(kind: DeployerArtifactKind): string {
 export async function uploadDeployerArtifact(
   file: File,
   kind: DeployerArtifactKind,
-  opts: { idempotencyKey: string; onProgress?: (percent: number) => void; signal?: AbortSignal },
+  opts: DeployerUploadOptions,
 ): Promise<DeployerArtifactUploadResult> {
   const bad = validateDeployerArtifactName(file.name, kind)
   if (bad) throw new FileUploadError('INVALID_FILE_TYPE', bad)
-  const url = resolveFileUrl('/api/v1/deployer-artifacts')
+  return uploadDeployerFile(file, '/api/v1/deployer-artifacts', opts)
+}
+
+interface DeployerUploadOptions {
+  idempotencyKey: string
+  onProgress?: (percent: number) => void
+  signal?: AbortSignal
+}
+
+/** deployer-artifacts/ 与 deployer-secrets/ 共用同一 multipart 上传协议，仅资源路径与对象前缀不同。 */
+async function uploadDeployerFile(
+  file: File,
+  resourcePath: string,
+  opts: DeployerUploadOptions,
+): Promise<DeployerArtifactUploadResult> {
+  const url = resolveFileUrl(resourcePath)
   const sha256 = await computeSha256(file)
   const token = await getValidAccessToken()
   const tokenDiag = token
@@ -214,6 +229,71 @@ export async function uploadDeployerArtifact(
     form.append('file', file)
     xhr.send(form)
   })
+}
+
+// ---- 应用级 TLS 证书对：独立机密前缀 deployer-secrets/ ----
+
+/** 机密制品上传结果结构与普通制品一致；接口不回传证书 / 私钥内容，页面也没有回读入口。 */
+export type DeployerSecretUploadResult = DeployerArtifactUploadResult
+export type DeployerSecretRole = 'cert' | 'key'
+
+const SECRET_EXTS = ['.crt', '.key', '.pem']
+/** 与 nginx client_max_body_size 11m 对齐；证书远小于此，提前拦截无意义的超大上传。 */
+const SECRET_MAX_BYTES = 10 * 1024 * 1024
+
+export function deployerSecretAccept(): string {
+  return SECRET_EXTS.join(',')
+}
+
+/**
+ * 与文件服务 validateFileType 的 FileKindDeployerSecret 分支保持同口径：
+ * 扩展名 + PEM 头 + 纯文本三重校验，并按上传栏位区分证书 / 私钥，防止传反。
+ * 只读取前 512 字节用于判定，不把私钥内容留在内存或日志里。
+ */
+export async function validateDeployerSecretFile(
+  file: File,
+  role: DeployerSecretRole,
+): Promise<string | null> {
+  const lower = file.name.toLowerCase()
+  if (!SECRET_EXTS.some((e) => lower.endsWith(e))) {
+    return '证书只支持 .crt / .key / .pem 的 PEM 文本文件'
+  }
+  if (file.size === 0) return '文件为空'
+  if (file.size > SECRET_MAX_BYTES) return '证书文件不能超过 10 MB'
+  let head: string
+  try {
+    head = await file.slice(0, 512).text()
+  } catch {
+    return '无法读取文件内容'
+  }
+  for (let i = 0; i < head.length; i++) {
+    const c = head.charCodeAt(i)
+    if (c === 0 || (c < 0x20 && c !== 9 && c !== 10 && c !== 13)) {
+      return '不是合法的 PEM 文本（含不可打印字符）'
+    }
+  }
+  const isCert = head.includes('-----BEGIN CERTIFICATE-----')
+  const isKey = head.includes('PRIVATE KEY-----')
+  if (lower.endsWith('.crt') && !isCert) return '.crt 文件必须包含 -----BEGIN CERTIFICATE-----'
+  if (lower.endsWith('.key') && !isKey) return '.key 文件必须包含 PRIVATE KEY 头'
+  if (lower.endsWith('.pem') && !isCert && !isKey) return '.pem 文件必须是证书或私钥 PEM 文本'
+  if (role === 'cert' && !isCert) return '证书栏请上传证书，不要上传私钥'
+  if (role === 'key' && !isKey) return '私钥栏请上传私钥，不要上传证书'
+  return null
+}
+
+/**
+ * 上传应用级证书 / 私钥到独立的 deployer-secrets/ 前缀。
+ * 上传走管理员 JWT；下载只接受 deployer 的 X-Service-Token，页面永不读取私钥内容。
+ */
+export async function uploadDeployerSecret(
+  file: File,
+  role: DeployerSecretRole,
+  opts: DeployerUploadOptions,
+): Promise<DeployerSecretUploadResult> {
+  const bad = await validateDeployerSecretFile(file, role)
+  if (bad) throw new FileUploadError('INVALID_FILE_TYPE', bad)
+  return uploadDeployerFile(file, '/api/v1/deployer-secrets', opts)
 }
 
 export async function uploadAppRelease(

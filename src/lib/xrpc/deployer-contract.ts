@@ -2,8 +2,8 @@
 // 类型直接对齐 deployer.proto；字段名沿用网关 native-json 的 snake_case（与 admin-contract.ts 一致）。
 // deployer 是独立服务，契约单独维护，页面不得自维护第二套方法清单。
 // 安全约定：台账零凭据列；前端只提交 operation_id 与有限参数，命令文本由后端白名单生成。
-// 上下架：listing_status 由 admin.SetNodeListing 维护，deployer 只读；台账不再有 enabled 字段。
-// 删除：由 admin.DeleteNodeAsset 单事务软删台账（deleted_at）并硬删依赖行；deployer 只按 include_deleted 过滤展示。
+// 台账 listing_status 只用于「节点是否可下发」；客户端出口可见性由 t_proxy_outlet 单独维护。
+// 删除：由 admin.DeleteNodeAsset 单事务软删台账（deleted_at）并清理依赖行；deployer 只按 include_deleted 过滤展示。
 
 import { xrpcCall, type CallOptions } from './transport'
 
@@ -25,7 +25,7 @@ export interface NodeAsset {
   ssh_user: string
   host_key_fingerprint: string // 人工确认后固定的 sshd 主机公钥指纹
   auth_status: string // pending / ready / failed
-  listing_status: string // listed 已上架 / delisted 已下架；由 admin.SetNodeListing 写入
+  listing_status: string // listed 可下发 / delisted 不可下发（仅用于发布中心选节点）
   last_probe_at: string
   remark: string
   created_at: string
@@ -184,13 +184,22 @@ export interface GetTaskLogResponse {
 
 // ---- 应用发布中心：App -> AppVersion -> AppDeployment ----
 // 事实源：proto/starland/deployer.proto + release-center.md。
-// 前端生命周期命令统一为 script:/opt/<应用目录>/setup.sh（动作 start|stop|restart|status）或 none；
-// 后端仍保留 systemd:<unit> 解析分支，仅用于兼容 DB 里旧应用定义行（§13.5 / §13.7）；
-// 路径与生命周期命令全部由后端按 service_type 白名单推导（release-center.md §13.5）。
-// 旧字段保留填推导值，供旧前端 dist 解析；CreateAppDefinition 只提交 3 项。
+// app_key 同时是安装目录名与二进制名：/opt/<app_key>/{<app_key>, conf/config.yaml, setup.sh}。
+// 启动命令是应用定义的可编辑字段，部署时由 deployer 渲染进该应用专属的 setup.sh；
+// 路径与生命周期命令由后端按 app_key 推导，前端不提交路径。
+// TLS 证书是应用级可选资产，不随版本变化：只登记 file_id + sha256，明文只在
+// 文件服务的 deployer-secrets/ 前缀，worker 部署时按 sha256 校验后写入 conf/server.{crt,key}。
 
-export type ServiceType = 'relay' | 'landing'
+export type ServiceType = string
 export type DeployMode = 'install' | 'upgrade' | 'rollback'
+
+/** 应用级 TLS 证书对元数据；接口永不回传证书 / 私钥内容。 */
+export interface TlsCertPair {
+  cert_file_id: string
+  cert_sha256: string
+  key_file_id: string
+  key_sha256: string
+}
 
 export interface AppDefinition {
   app_id: string
@@ -200,11 +209,11 @@ export interface AppDefinition {
   config_filename: string
   config_target_path: string
   bin_target_path: string
-  identity_path: string // 已退役（兼容字段）：身份改由应用自读 /etc/starland/node-identity
-  start_cmd: string
-  stop_cmd: string
+  start_command: string
+  requires_identity: boolean
   restart_cmd: string
   health_check: string
+  tls_cert?: TlsCertPair | null // 未配置时为空
   created_by: string
   created_at: string
   updated_at: string
@@ -213,14 +222,32 @@ export interface ListAppDefinitionsRequest {}
 export interface ListAppDefinitionsResponse { apps: AppDefinition[] }
 export interface GetAppDefinitionRequest { app_id: string }
 export interface GetAppDefinitionResponse { app: AppDefinition }
-/** 其余路径/命令字段由后端推导；proto 不改动，旧字段与编号原样保留但不生效（兼容旧前端 dist，§13.5 / §13.7）。 */
+/** 创建应用：只提交可编辑属性，路径与生命周期命令由后端推导。 */
 export interface CreateAppDefinitionRequest {
   app_key: string
   display_name: string
-  service_type: ServiceType
+  service_type: string
+  start_command: string
+  requires_identity: boolean
   config_filename?: string
+  tls_cert?: TlsCertPair // 可选；不传 = 不配证书
 }
 export interface CreateAppDefinitionResponse { app: AppDefinition }
+/**
+ * 编辑应用：app_key 不可变；启动命令改动于下次部署渲染脚本时生效。
+ * 证书三态：不传 tls_cert/clear_tls_cert = 保持原样；传 tls_cert = 替换；
+ * clear_tls_cert=true = 移除（不下发，也不删目标机本机文件）。
+ */
+export interface UpdateAppDefinitionRequest {
+  app_id: string
+  display_name: string
+  service_type: string
+  start_command: string
+  requires_identity: boolean
+  tls_cert?: TlsCertPair
+  clear_tls_cert?: boolean
+}
+export interface UpdateAppDefinitionResponse { app: AppDefinition }
 
 export interface AppVersion {
   version_id: string
@@ -238,6 +265,7 @@ export interface AppVersion {
   is_stable: boolean
   created_by: string
   created_at: string
+  config_only: boolean // 纯配置版本：复用 stable 的 ELF，只换内联配置
 }
 // 对应 proto 的 ListDeployVersionsRequest/Response（为避与 admin.proto 同名消息冲突而改名，RPC 名仍是 ListAppVersions）。
 export interface ListAppVersionsRequest { app_id: string }
@@ -253,6 +281,8 @@ export interface CreateAppVersionRequest {
   config_sha256: string
   change_note: string
   is_stable: boolean
+  config_only?: boolean // 纯配置版本：可不传 bin 四字段，由后端从 stable 继承
+  config_inline?: string // 内联配置全文，worker 不再走文件服务下载
 }
 export interface CreateAppVersionResponse { version: AppVersion }
 export interface GetAppVersionConfigRequest {
@@ -371,6 +401,7 @@ export interface DeployerContract {
   ListAppDefinitions: { req: ListAppDefinitionsRequest; res: ListAppDefinitionsResponse }
   GetAppDefinition: { req: GetAppDefinitionRequest; res: GetAppDefinitionResponse }
   CreateAppDefinition: { req: CreateAppDefinitionRequest; res: CreateAppDefinitionResponse }
+  UpdateAppDefinition: { req: UpdateAppDefinitionRequest; res: UpdateAppDefinitionResponse }
   CreateAppVersion: { req: CreateAppVersionRequest; res: CreateAppVersionResponse }
   ListAppVersions: { req: ListAppVersionsRequest; res: ListAppVersionsResponse }
   GetAppVersionConfig: { req: GetAppVersionConfigRequest; res: GetAppVersionConfigResponse }

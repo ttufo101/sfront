@@ -9,6 +9,8 @@ import type {
   GetAppDefinitionResponse,
   CreateAppDefinitionRequest,
   CreateAppDefinitionResponse,
+  UpdateAppDefinitionRequest,
+  UpdateAppDefinitionResponse,
   CreateAppVersionRequest,
   CreateAppVersionResponse,
   ListAppVersionsRequest,
@@ -43,6 +45,12 @@ export function createAppDefinition(
   params: CreateAppDefinitionRequest,
 ): Promise<CreateAppDefinitionResponse> {
   return callDeployer('CreateAppDefinition', params)
+}
+
+export function updateAppDefinition(
+  params: UpdateAppDefinitionRequest,
+): Promise<UpdateAppDefinitionResponse> {
+  return callDeployer('UpdateAppDefinition', params)
 }
 
 // ---- 版本 ----

@@ -2,7 +2,7 @@
 // 本页不调用任何 RPC、不探测节点、不签发身份 —— 那套机制已退役。
 // 保留页面的原因是身份文件成为 fail-closed 单点后，运维需要一个明确的排障入口。
 
-import { APP_DIR_BY_TYPE, NODE_IDENTITY_PATH, SERVICE_TYPE_LABEL } from '../lib/model'
+import { NODE_IDENTITY_PATH } from '../lib/model'
 
 const POINTS = [
   {
@@ -23,7 +23,11 @@ const POINTS = [
   },
   {
     title: '发布中心边界',
-    body: '不签发、不探测、不合成、不覆盖、不回显任何凭据；install / upgrade / rollback 走完全同一条路径，无 service_type 分流。',
+    body: '对节点身份不签发、不探测、不合成、不覆盖、不回显任何凭据；install / upgrade / rollback 走完全同一条路径，无 service_type 分流。',
+  },
+  {
+    title: '证书不是身份',
+    body: 'TLS 证书对（conf/server.crt 与 conf/server.key）是应用级可选资产，由发布中心在部署时按 sha256 校验后下发；身份文件 /etc/starland/node-identity 仍由纳管写入且发布中心永不触碰，两者不要混放。',
   },
 ]
 
@@ -53,17 +57,15 @@ export function NodeIdentityPage() {
       </div>
 
       <div className="rounded-md border p-5 text-sm">
-        <div className="font-medium">统一应用布局（后端按 service_type 推导）</div>
+        <div className="font-medium">统一应用布局（按应用 key 推导）</div>
         <div className="mt-3 space-y-1 font-mono text-xs">
-          {Object.entries(APP_DIR_BY_TYPE).map(([type, dir]) => (
-            <div key={type} className="flex flex-wrap gap-x-3">
-              <span className="w-24 shrink-0 text-muted-foreground">{SERVICE_TYPE_LABEL[type] ?? type}</span>
-              <span className="break-all">/opt/{dir}/{'{'}{dir}, conf/config.yaml, setup.sh{'}'}</span>
-            </div>
-          ))}
+          <div className="break-all">/opt/&lt;app_key&gt;/{'{'}&lt;app_key&gt;, conf/config.yaml, conf/server.crt, conf/server.key, setup.sh{'}'}</div>
         </div>
         <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-          conf/ 下除 config.yaml 外的一切、log/、pid、证书都属于本机状态。发布中心只覆盖可执行程序与纯业务模板两个文件。
+          部署时发布中心写入可执行程序、纯业务模板，并按应用定义渲染出该应用专属的 setup.sh（0755）。
+          脚本模板由 deployer 内置，启动命令在创建应用时填写、随时可改。TLS 证书对是应用级可选资产，配了才由
+          worker 下发到 conf/server.crt（0644）与 conf/server.key（0600）并在每次部署覆盖；没配就不碰本机文件。
+          conf/ 下其它文件、log/、pid 仍属于本机状态。
         </p>
       </div>
 

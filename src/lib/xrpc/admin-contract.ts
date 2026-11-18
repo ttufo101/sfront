@@ -602,30 +602,97 @@ export interface ReviewOrderPaymentResponse {
   status: string // 裁决后的订单业务状态（paid 或 closed）
 }
 
-// ---- 落地出口归属与人工上下架（t_proxy_outlet / t_node_asset.listing_status）----
-// 「下架」是业务动作而非单一字段：中转用 UpdateDataPlaneNode(scheduling_status=isolated)，
-// 落地用 SetNodeListing(node_id, listing_status)；故障节点仍展示，只是不参与选路。
+// ---- 落地出口声明式模型（端口为唯一主键）----
+// 一条声明经一次渲染生成中转 mihomo / 落地 hysteria / 客户端订阅三份配置。
+// 上下架只影响客户端可见性；增删出口或落地节点走「预览 → 人工确认 → 发纯配置批次」。
 export interface ListProxyOutletsRequest {}
+export interface ProxyLandingNode {
+  node_id: string
+  public_ip: string
+  display_name: string
+}
 export interface ProxyOutlet {
-  proxy_name: string // 对齐代理 YAML 的 proxies[].name
-  node_id: string // 归属落地机；空=未绑定
-  public_ip: string // 归属机器公网 IP，运维按此核对
-  port: number
+  port: number // 唯一主键，也是中转 listener 的连入端口
+  node_id: string // 归属落地机
+  public_ip: string
+  region: string // 客户端 proxies[].name
+  sni: string
   listing_status: string // listed / delisted
 }
 export interface ListProxyOutletsResponse {
   outlets: ProxyOutlet[]
-  unmapped_proxy_names: string[] // YAML 有、表里无：需在出口页绑定到机器
-  stale_proxy_names: string[] // 表里有、YAML 已无：YAML 改过名字
+  pool_start: number
+  pool_end: number
+  landing_port: number
+  landing_nodes: ProxyLandingNode[]
 }
-export interface SetNodeListingRequest {
-  node_id: string // 按机器粒度
-  listing_status: string // listed / delisted
-  proxy_names?: string[] // 可选：先绑定这些出口到 node_id，再按机器设置状态；空=只改状态
+
+export interface SetOutletListingRequest {
+  port: number
+  listing_status: string
 }
-export interface SetNodeListingResponse {
+export interface SetOutletListingResponse { success: boolean }
+
+export interface GetProxyRuntimeConfigRequest {}
+export interface ProxyRuntimeConfig {
+  port_pool_start: number
+  port_pool_end: number
+  landing_port: number
+  landing_password_set: boolean // 明文口令不回传
+  relay_base: string
+  revision: number | string
+  last_relay_digest: string
+  last_landing_digest: string
+}
+export interface GetProxyRuntimeConfigResponse { config: ProxyRuntimeConfig }
+export interface UpdateProxyRuntimeConfigRequest {
+  port_pool_start: number
+  port_pool_end: number
+  landing_port: number
+  landing_password?: string // 空 = 保持
+  relay_base: string
+  expected_revision: number | string
+  client_request_id: string
+  operation_reason: string
+}
+export interface UpdateProxyRuntimeConfigResponse { success: boolean; revision: number | string }
+
+/** 期望的完整出口声明：提交 / 预览 / 发布共用，确认前不写库。 */
+export interface ProxyOutletSpec {
+  port: number
+  node_id: string
+  region: string
+  sni: string
+  listing_status: string
+}
+export interface PreviewProxyChangeRequest { outlets: ProxyOutletSpec[] }
+export interface PreviewProxyChangeResponse {
+  ok: boolean
+  digest: string
+  diff: string
+  relay_config: string
+  landing_config: string
+  client_config: string
+  relay_digest: string
+  landing_digest: string
+  errors: string[]
+}
+export interface PublishProxyChangeRequest {
+  outlets: ProxyOutletSpec[]
+  expected_digest: string
+  change_note: string
+  client_request_id: string
+  operation_reason: string
+}
+export interface ProxyBatch {
+  app_key: string
+  version_label: string
+  batch_id: string
+}
+export interface PublishProxyChangeResponse {
   success: boolean
-  affected_outlets: number
+  batches: ProxyBatch[]
+  message: string
 }
 
 
@@ -664,7 +731,11 @@ export interface AdminContract {
   GetUserRelayAssignment: { req: GetUserRelayAssignmentRequest; res: GetUserRelayAssignmentResponse }
   SetUserRelayAssignment: { req: SetUserRelayAssignmentRequest; res: SetUserRelayAssignmentResponse }
   ListProxyOutlets: { req: ListProxyOutletsRequest; res: ListProxyOutletsResponse }
-  SetNodeListing: { req: SetNodeListingRequest; res: SetNodeListingResponse }
+  SetOutletListing: { req: SetOutletListingRequest; res: SetOutletListingResponse }
+  GetProxyRuntimeConfig: { req: GetProxyRuntimeConfigRequest; res: GetProxyRuntimeConfigResponse }
+  UpdateProxyRuntimeConfig: { req: UpdateProxyRuntimeConfigRequest; res: UpdateProxyRuntimeConfigResponse }
+  PreviewProxyChange: { req: PreviewProxyChangeRequest; res: PreviewProxyChangeResponse }
+  PublishProxyChange: { req: PublishProxyChangeRequest; res: PublishProxyChangeResponse }
   DeleteNodeAsset: { req: DeleteNodeAssetRequest; res: DeleteNodeAssetResponse }
   GetSharedPlanBenefitsConfig: { req: GetSharedPlanBenefitsConfigRequest; res: GetSharedPlanBenefitsConfigResponse }
   UpdateSharedPlanBenefitsConfig: { req: UpdateSharedPlanBenefitsConfigRequest; res: UpdateSharedPlanBenefitsConfigResponse }

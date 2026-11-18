@@ -1,12 +1,20 @@
-// 落地出口归属与人工上下架 API（Admin 模块，与代理配置同域）。
-// 「下架」是业务动作：中转走 UpdateDataPlaneNode，落地走这里的 SetNodeListing。
+// 落地出口声明式模型 API（Admin 模块）。
+// 端口是唯一主键；预览零写操作，人工确认后才落库 + 发纯配置批次。
 
 import { adminCall } from '@/lib/xrpc/transport'
 import type {
   ListProxyOutletsRequest,
   ListProxyOutletsResponse,
-  SetNodeListingRequest,
-  SetNodeListingResponse,
+  SetOutletListingRequest,
+  SetOutletListingResponse,
+  GetProxyRuntimeConfigRequest,
+  GetProxyRuntimeConfigResponse,
+  UpdateProxyRuntimeConfigRequest,
+  UpdateProxyRuntimeConfigResponse,
+  PreviewProxyChangeRequest,
+  PreviewProxyChangeResponse,
+  PublishProxyChangeRequest,
+  PublishProxyChangeResponse,
 } from '@/lib/xrpc/admin-contract'
 
 export function listProxyOutlets(
@@ -15,7 +23,33 @@ export function listProxyOutlets(
   return adminCall('ListProxyOutlets', params)
 }
 
-/** 按机器上下架；proxy_names 非空时先把这些出口绑定到该机器，再统一改状态。 */
-export function setNodeListing(params: SetNodeListingRequest): Promise<SetNodeListingResponse> {
-  return adminCall('SetNodeListing', params)
+/** 纯客户端可见性开关：不改中转规则、不发批次。 */
+export function setOutletListing(params: SetOutletListingRequest): Promise<SetOutletListingResponse> {
+  return adminCall('SetOutletListing', params)
+}
+
+export function getProxyRuntimeConfig(
+  params: GetProxyRuntimeConfigRequest = {},
+): Promise<GetProxyRuntimeConfigResponse> {
+  return adminCall('GetProxyRuntimeConfig', params)
+}
+
+export function updateProxyRuntimeConfig(
+  params: UpdateProxyRuntimeConfigRequest,
+): Promise<UpdateProxyRuntimeConfigResponse> {
+  return adminCall('UpdateProxyRuntimeConfig', params)
+}
+
+/** 渲染 + dry-run + diff，服务端不写库、不建版本、不发批次。 */
+export function previewProxyChange(
+  params: PreviewProxyChangeRequest,
+): Promise<PreviewProxyChangeResponse> {
+  return adminCall('PreviewProxyChange', params)
+}
+
+/** diff 预览确认后调用：落库 + 建 config_only 版本 + 发批次。 */
+export function publishProxyChange(
+  params: PublishProxyChangeRequest,
+): Promise<PublishProxyChangeResponse> {
+  return adminCall('PublishProxyChange', params)
 }

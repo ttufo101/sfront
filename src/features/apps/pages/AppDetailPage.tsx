@@ -24,6 +24,7 @@ import {
   listAppDeployments,
   listDeployBatches,
 } from '../api/apps'
+import { AppFormDialog } from '../components/AppFormDialog'
 import { VersionFormDialog } from '../components/VersionFormDialog'
 import { ConfigViewDialog } from '../components/ConfigViewDialog'
 import { DeployDialog } from '../components/DeployDialog'
@@ -56,7 +57,7 @@ const TABS: { key: Tab; label: string; hint: string }[] = [
   { key: 'versions', label: '版本列表', hint: '版本号自增，制品与模板不可变' },
   { key: 'deployments', label: '已部署节点', hint: '升级 / 回滚的唯一入口' },
   { key: 'tasks', label: '发布任务', hint: '批次进度与节点明细' },
-  { key: 'settings', label: '应用设置', hint: '静态属性只读' },
+  { key: 'settings', label: '应用设置', hint: '启动命令与可选证书可编辑' },
 ]
 
 function isTab(v: string | null): v is Tab {
@@ -95,6 +96,7 @@ export function AppDetailPage() {
   const [deployTarget, setDeployTarget] = useState<string | null>(null)
   const [wizard, setWizard] = useState<Exclude<DeployMode, 'install'> | null>(null)
   const [taskBatch, setTaskBatch] = useState<string | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -396,16 +398,27 @@ export function AppDetailPage() {
       {/* ---------------- 应用设置 ---------------- */}
       {tab === 'settings' && app && (
         <Card className="p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="text-sm font-medium">应用属性</div>
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              编辑应用
+            </Button>
+          </div>
           <dl className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
             {[
               ['应用 key', app.app_key],
               ['显示名称', app.display_name],
               ['服务类型', SERVICE_TYPE_LABEL[app.service_type] ?? app.service_type],
+              ['启动命令', app.start_command],
+              ['需要本机身份', app.requires_identity ? '是' : '否'],
               ['配置文件名', app.config_filename],
               ['配置目标路径', app.config_target_path],
               ['可执行程序路径', app.bin_target_path],
-              ['重启方式', app.restart_cmd],
+              ['生命周期脚本', app.restart_cmd],
               ['健康检查', app.health_check],
+              ['TLS 证书 conf/server.crt', app.tls_cert ? shortSha(app.tls_cert.cert_sha256) : '未配置'],
+              ['TLS 私钥 conf/server.key', app.tls_cert ? shortSha(app.tls_cert.key_sha256) : '未配置'],
+              ['证书下发目录', `/opt/${app.app_key}/conf`],
               ['本机身份文件（应用自读）', NODE_IDENTITY_PATH],
               ['创建人', app.created_by],
               ['创建时间', formatShortTime(app.created_at)],
@@ -417,15 +430,29 @@ export function AppDetailPage() {
               </div>
             ))}
           </dl>
-          <div className="mt-5 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
-            应用定义为静态属性，创建后不提供编辑。路径与命令由后端按 service_type 白名单推导，所有应用共用同一份 setup.sh 生命周期脚本；
-            节点身份由应用自读 /etc/starland/node-identity，发布中心不签发、不合成、不覆盖。
+          <div className="mt-5 space-y-1 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+            <p>
+              启动命令、显示名称、服务类型、身份要求与 TLS 证书对可随时编辑；改动会在下一次部署渲染该应用专属
+              setup.sh 时生效。app_key 一经创建不可修改，它同时是安装目录名与二进制名。节点身份由应用自读
+              /etc/starland/node-identity，发布中心不签发、不合成、不覆盖。
+            </p>
+            <p>
+              证书属于应用定义而非版本：配置后每次部署按 sha256 校验并覆盖 conf/server.crt（0644）与
+              conf/server.key（0600），轮换无需发新版本；这里只显示指纹，页面无从读取私钥内容。
+              未配置或移除后不再下发，也不会删除目标机已有文件。
+            </p>
           </div>
         </Card>
       )}
 
       {app && (
         <>
+          <AppFormDialog
+            open={editOpen}
+            app={app}
+            onClose={() => setEditOpen(false)}
+            onCreated={() => void load()}
+          />
           <VersionFormDialog
             app={app}
             open={versionDialog}

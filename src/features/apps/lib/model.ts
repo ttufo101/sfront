@@ -1,5 +1,5 @@
 // 应用发布中心展示常量与提交前校验。
-// 路径与命令由后端按 service_type 白名单推导，前端只展示、不提交（release-center.md §13）。
+// 路径由后端按 app_key 推导；启动命令是应用定义的可编辑字段（release-center.md §13.16）。
 // 节点身份由各应用自读 /etc/starland/node-identity，发布中心不签发、不探测、不合成。
 
 import type { DeployMode } from '@/lib/xrpc/deployer-contract'
@@ -9,18 +9,12 @@ export const SERVICE_TYPE_LABEL: Record<string, string> = {
   landing: '落地 landing',
 }
 
-/** 后端按 service_type 推导的应用目录名（前端只读展示，绝不提交路径）。 */
-export const APP_DIR_BY_TYPE: Record<string, string> = {
-  relay: 'mihomo',
-  landing: 'hysteria',
-}
-
 /** 本机身份文件：跨应用、0600 root、由应用自读，发布中心永不写入或覆盖。 */
 export const NODE_IDENTITY_PATH = '/etc/starland/node-identity'
 
-/** 统一生命周期命令：所有 service_type 同一形态，接口固定 start|stop|restart|status。 */
-export function lifecycleScript(appDir: string): string {
-  return `script:/opt/${appDir}/setup.sh`
+/** 统一生命周期命令：所有应用同一形态，接口固定 start|stop|restart|status。 */
+export function lifecycleScript(appKey: string): string {
+  return `script:/opt/${appKey}/setup.sh`
 }
 
 export const MODE_LABEL: Record<string, string> = {

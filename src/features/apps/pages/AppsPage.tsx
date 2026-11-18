@@ -143,7 +143,7 @@ export function AppsPage() {
         {!loading && rows.length === 0 && (
           <StateBlock
             title="还没有应用定义"
-            description="先新建应用（只填应用标识、名称、服务类型，路径与启停由后端推导），再创建版本并部署到服务器。"
+            description="先新建应用（填应用 key、名称、服务类型与启动命令；目录、二进制名与生命周期脚本由后端按应用 key 推导；TLS 证书对可选、在应用上配置一次即可），再创建版本并部署到服务器。"
             action={
               <Button size="sm" onClick={() => setFormOpen(true)}>
                 <Boxes className="mr-1 h-4 w-4" /> 新建应用

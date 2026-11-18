@@ -71,8 +71,8 @@ export function ProxyConfigPage() {
   return (
     <div>
       <PageHeader
-        title="代理节点配置"
-        description="编辑完整 proxy.yaml 文本并下发到所有节点"
+        title="客户端基础模板"
+        description="只维护静态骨架（DNS / 分流规则 / 策略组）；出口由落地出口声明每次渲染注入"
         actions={
           <>
             {dirty && !hasSyntaxError && <Badge variant="warning">未保存</Badge>}
@@ -143,10 +143,13 @@ export function ProxyConfigPage() {
       </div>
 
       <p className="mt-2 text-xs text-muted-foreground">
-        说明：此处内容为代理配置文件全文（明文，非 base64）。前端已做 YAML 语法校验与结构预校验。保存前请确认：
-        ① 至少存在 1 个 AnyTLS 类型节点；② 所有 AnyTLS 节点的密码必须写成占位符{' '}
-        <code className="rounded bg-muted px-1">ANYTLS_PASSWORD</code>
-        （下发时由系统替换为当前用户固定密码，禁止写入真实密码或静态共享密码，否则会被后端拒绝）。下发后会影响全部节点。
+        说明：此处是客户端订阅的<strong>基础模板</strong>，不是完整 proxy.yaml。
+        <code className="mx-1 rounded bg-muted px-1">proxies: []</code>
+        必须留空、<code className="mx-1 rounded bg-muted px-1">proxy-groups</code>
+        保留 select / url-test / fallback 三类策略组骨架（当前显示名为「自动选择」「故障转移」，名称可直接改）；
+        系统每次响应 GetLinks 时按「落地出口」页里已上架的声明注入节点与引用，
+        并替换 <code className="rounded bg-muted px-1">ANYTLS_PASSWORD</code> 与{' '}
+        <code className="rounded bg-muted px-1">RELAY_HOST</code>。不需要在此手写 AnyTLS 节点，也不需要写真实密码。
       </p>
     </div>
   )
